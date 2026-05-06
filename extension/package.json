@@ -1,0 +1,21 @@
+{
+  "name": "bookmark-panel-extension",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:chrome": "vite build --mode chrome",
+    "build:firefox": "vite build --mode firefox",
+    "build:edge": "vite build --mode edge"
+  },
+  "dependencies": {
+    "vue": "^3.4.21",
+    "lucide-vue-next": "^0.39.0",
+    "axios": "^1.6.8"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.8"
+  }
+}

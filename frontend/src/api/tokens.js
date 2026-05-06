@@ -1,0 +1,52 @@
+import axios from 'axios';
+
+const axiosInstance = axios.create({
+  baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+axiosInstance.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+axiosInstance.interceptors.response.use(
+  response => response.data,
+  error => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.reload();
+    }
+    throw error;
+  }
+);
+
+const tokenApi = {
+  getTokens: async () => {
+    return axiosInstance.get('/tokens');
+  },
+
+  createToken: async (name) => {
+    return axiosInstance.post('/tokens', { name });
+  },
+
+  deleteToken: async (id) => {
+    return axiosInstance.delete(`/tokens/${id}`);
+  },
+
+  rotateToken: async (id) => {
+    return axiosInstance.put(`/tokens/${id}/rotate`);
+  },
+
+  verifyToken: async (token) => {
+    return axiosInstance.post('/tokens/verify', { token });
+  }
+};
+
+export default tokenApi;

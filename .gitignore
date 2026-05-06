@@ -1,0 +1,48 @@
+# ============ Node.js ============
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ============ 环境变量 ============
+.env
+.env.local
+.env.*.local
+
+# ============ 构建产物 ============
+frontend/dist/
+extension/dist/
+
+# ============ 数据库 ============
+*.db
+*.sqlite
+*.sqlite3
+
+# ============ IDE / 编辑器 ============
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ============ 日志 ============
+logs/
+*.log
+
+# ============ 操作系统 ============
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ============ Docker ============
+.docker/
+docker-compose.override.yml
+
+# ============ 临时文件 ============
+tmp/
+temp/
+*.tmp

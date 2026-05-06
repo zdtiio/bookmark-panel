@@ -1,0 +1,144 @@
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
+import { bookmarkApi, folderApi } from '../api';
+
+export const useBookmarkStore = defineStore('bookmarks', () => {
+  const bookmarks = ref([]);
+  const folders = ref([]);
+
+  const loadBookmarks = async () => {
+    try {
+      bookmarks.value = await bookmarkApi.getAllBookmarks();
+    } catch (error) {
+      console.error('Failed to load bookmarks:', error);
+    }
+  };
+
+  const loadFolders = async () => {
+    try {
+      folders.value = await folderApi.getAllFolders();
+    } catch (error) {
+      console.error('Failed to load folders:', error);
+    }
+  };
+
+  const addBookmark = async (bookmark) => {
+    try {
+      const response = await bookmarkApi.createBookmark(bookmark);
+      bookmarks.value.unshift(response);
+    } catch (error) {
+      console.error('Failed to add bookmark:', error);
+    }
+  };
+
+  const updateBookmark = async (id, data) => {
+    try {
+      const response = await bookmarkApi.updateBookmark(id, data);
+      const index = bookmarks.value.findIndex(b => b.id === id);
+      if (index !== -1) {
+        bookmarks.value[index] = response;
+      }
+    } catch (error) {
+      console.error('Failed to update bookmark:', error);
+    }
+  };
+
+  const deleteBookmark = async (id) => {
+    try {
+      await bookmarkApi.deleteBookmark(id);
+      bookmarks.value = bookmarks.value.filter(b => b.id !== id);
+    } catch (error) {
+      console.error('Failed to delete bookmark:', error);
+    }
+  };
+
+  const addFolder = async (name, sortOrder = null, parentId = null) => {
+    try {
+      const response = await folderApi.createFolder(name, sortOrder, parentId);
+      folders.value.push(response);
+    } catch (error) {
+      console.error('Failed to add folder:', error);
+    }
+  };
+
+  const updateFolder = async (id, name) => {
+    try {
+      const response = await folderApi.updateFolder(id, name);
+      const index = folders.value.findIndex(f => f.id === id);
+      if (index !== -1) {
+        folders.value[index] = response;
+      }
+    } catch (error) {
+      console.error('Failed to update folder:', error);
+    }
+  };
+
+  const updateFolderParent = async (id, parentId) => {
+    try {
+      const response = await folderApi.updateFolderParent(id, parentId);
+      const index = folders.value.findIndex(f => f.id === id);
+      if (index !== -1) {
+        folders.value[index] = response;
+      }
+    } catch (error) {
+      console.error('Failed to update folder parent:', error);
+    }
+  };
+
+  const updateFolderOrder = async (foldersData) => {
+    try {
+      await folderApi.updateFolderOrder(foldersData);
+      folders.value = foldersData;
+    } catch (error) {
+      console.error('Failed to update folder order:', error);
+    }
+  };
+
+  const deleteFolder = async (id) => {
+    try {
+      await folderApi.deleteFolder(id);
+      folders.value = folders.value.filter(f => f.id !== id);
+      bookmarks.value = bookmarks.value.filter(b => b.folderId !== id);
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
+    }
+  };
+
+  const updateBookmarkFolder = async (id, folderId) => {
+    try {
+      const response = await bookmarkApi.updateBookmarkFolder(id, folderId);
+      const index = bookmarks.value.findIndex(b => b.id === id);
+      if (index !== -1) {
+        bookmarks.value[index] = response;
+      }
+    } catch (error) {
+      console.error('Failed to update bookmark folder:', error);
+    }
+  };
+
+  const updateBookmarkOrder = async (bookmarksData) => {
+    try {
+      await bookmarkApi.updateBookmarkOrder(bookmarksData);
+      bookmarks.value = bookmarksData;
+    } catch (error) {
+      console.error('Failed to update bookmark order:', error);
+    }
+  };
+
+  return {
+    bookmarks,
+    folders,
+    loadBookmarks,
+    loadFolders,
+    addBookmark,
+    updateBookmark,
+    updateBookmarkFolder,
+    updateBookmarkOrder,
+    deleteBookmark,
+    addFolder,
+    updateFolder,
+    updateFolderParent,
+    updateFolderOrder,
+    deleteFolder
+  };
+});
