@@ -6,6 +6,9 @@
   >
     <el-form :model="form">
       <el-form-item label="标题">
+        <template #label>
+          标题 <span class="required-star">*</span>
+        </template>
         <div class="title-input-group">
           <el-input 
             v-model="form.title" 
@@ -24,12 +27,18 @@
         </div>
       </el-form-item>
       <el-form-item label="URL">
+        <template #label>
+          URL <span class="required-star">*</span>
+        </template>
         <el-input v-model="form.url" placeholder="请输入网址" />
       </el-form-item>
       <el-form-item label="描述">
         <el-input v-model="form.description" type="textarea" placeholder="请输入描述" />
       </el-form-item>
       <el-form-item label="文件夹">
+        <template #label>
+          文件夹 <span class="required-star">*</span>
+        </template>
         <el-tree-select
           v-model="form.folderId"
           :data="folderTree"
@@ -141,33 +150,58 @@ watch(() => localVisible.value, (newVal) => {
   }
 });
 
+const isValidUrl = (string) => {
+  try {
+    const url = new URL(string);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (_) {
+    return false;
+  }
+};
+
 const fetchTitleFromUrl = async () => {
   if (!form.value.url) {
     ElMessage.error('请先输入URL');
     return;
   }
   
+  if (!isValidUrl(form.value.url)) {
+    ElMessage.error('请输入有效的URL地址，需要以 http:// 或 https:// 开头');
+    return;
+  }
+  
   isFetchingTitle.value = true;
   
   try {
-    const response = await fetch('/api/bookmarks/title', {
-      method: 'POST',
+    const response = await fetch(form.value.url, {
+      mode: 'cors',
       headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ url: form.value.url })
+        'Accept': 'text/html'
+      }
     });
     
-    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     
-    if (data.success && data.title) {
-      form.value.title = data.title;
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const title = doc.querySelector('title')?.textContent || '';
+    
+    if (title) {
+      form.value.title = title.trim();
       ElMessage.success('标题获取成功');
     } else {
-      ElMessage.error(data.message || '获取标题失败');
+      ElMessage.error('该网页没有标题');
     }
   } catch (error) {
-    ElMessage.error('获取标题失败，请检查URL是否正确');
+    console.error('Fetch title error:', error);
+    if (error.message.includes('CORS')) {
+      ElMessage.warning('该网站禁止跨域访问，无法自动获取标题，请手动输入');
+    } else {
+      ElMessage.error('获取标题失败，请检查URL是否正确或该网站是否可访问');
+    }
   } finally {
     isFetchingTitle.value = false;
   }
@@ -206,5 +240,9 @@ const handleSave = () => {
 
 .title-input-group .el-input {
   flex: 1;
+}
+
+.required-star {
+  color: #f56c6c;
 }
 </style>

@@ -6,7 +6,9 @@ const ApiToken = require('../models/ApiToken');
 
 const userService = {
   async createUser(username, email, password) {
-    return User.create({ username, email, password });
+    const user = await User.create({ username, email, password });
+    await Folder.create({ userId: user.id, name: '默认文件夹' });
+    return user;
   },
 
   async findByEmail(email) {
