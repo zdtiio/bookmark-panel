@@ -11,7 +11,12 @@
     </div>
     <div class="header-center">
       <div class="header-search-container">
-        <SearchBar placeholder="搜索书签..." />
+        <SearchBar 
+          placeholder="搜索书签..." 
+          :is-logged-in="true"
+          @search="handleSearch"
+          @clear="handleSearchClear"
+        />
       </div>
     </div>
     <div class="header-right">
@@ -34,10 +39,18 @@ import { Plus, Settings, LogOut } from 'lucide-vue-next';
 import { useConfigStore } from '../stores/config';
 import SearchBar from './SearchBar.vue';
 
-defineEmits(['add-bookmark', 'settings', 'logout']);
+const emit = defineEmits(['add-bookmark', 'settings', 'logout', 'search', 'search-clear']);
 
 const configStore = useConfigStore();
 const config = computed(() => configStore.config);
+
+const handleSearch = (query) => {
+  emit('search', query);
+};
+
+const handleSearchClear = () => {
+  emit('search-clear');
+};
 
 const currentTime = ref('');
 const currentDate = ref('');

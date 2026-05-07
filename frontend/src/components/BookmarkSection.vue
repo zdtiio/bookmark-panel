@@ -1,7 +1,11 @@
 <template>
   <section class="bookmark-section">
     <div class="bookmark-header">
-      <div class="folder-breadcrumb">
+      <div v-if="isSearchResult" class="search-result-label">
+        <Search class="search-icon" />
+        <span>搜索结果</span>
+      </div>
+      <div v-else class="folder-breadcrumb">
         <div 
           v-for="(item, index) in currentFolderPath" 
           :key="item.id"
@@ -15,7 +19,7 @@
         </div>
       </div>
       <button 
-        v-if="selectedFolderId !== null && bookmarks.length > 0"
+        v-if="!isSearchResult && selectedFolderId !== null && bookmarks.length > 0"
         @click="$emit('toggle-edit')"
         class="edit-mode-btn"
         :class="{ 'active': isEditMode }"
@@ -98,7 +102,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { Folder, ChevronRight, Pencil, BookmarkMinus, Check, Move, Trash2 } from 'lucide-vue-next';
+import { Folder, ChevronRight, Pencil, BookmarkMinus, Check, Move, Trash2, Search } from 'lucide-vue-next';
 import BookmarkCard from './BookmarkCard.vue';
 
 const props = defineProps({
@@ -133,6 +137,10 @@ const props = defineProps({
   selectedIds: {
     type: Array,
     default: () => []
+  },
+  isSearchResult: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -302,6 +310,23 @@ defineEmits([
 
 .bookmark-content::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+.search-result-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(64, 158, 255, 0.15);
+  border-radius: 6px;
+  color: #409eff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.search-result-label .search-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .folder-breadcrumb {

@@ -10,6 +10,19 @@ const bookmarkController = {
     }
   },
 
+  async searchBookmarks(req, res) {
+    try {
+      const { q } = req.query;
+      if (!q) {
+        return res.status(400).json({ message: 'Search query is required' });
+      }
+      const bookmarks = await bookmarkService.searchBookmarks(req.user.id, q);
+      res.json(bookmarks);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  },
+
   async getBookmarkById(req, res) {
     try {
       const bookmark = await bookmarkService.getBookmarkById(req.user.id, req.params.id);

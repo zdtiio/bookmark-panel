@@ -32,6 +32,10 @@ const bookmarkApi = {
     return axiosInstance.get('/bookmarks');
   },
 
+  searchBookmarks: async (query) => {
+    return axiosInstance.get(`/bookmarks/search?q=${encodeURIComponent(query)}`);
+  },
+
   getBookmarkById: async (id) => {
     return axiosInstance.get(`/bookmarks/${id}`);
   },

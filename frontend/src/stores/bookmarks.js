@@ -5,6 +5,8 @@ import { bookmarkApi, folderApi } from '../api';
 export const useBookmarkStore = defineStore('bookmarks', () => {
   const bookmarks = ref([]);
   const folders = ref([]);
+  const searchResults = ref([]);
+  const isSearching = ref(false);
 
   const loadBookmarks = async () => {
     try {
@@ -12,6 +14,24 @@ export const useBookmarkStore = defineStore('bookmarks', () => {
     } catch (error) {
       console.error('Failed to load bookmarks:', error);
     }
+  };
+
+  const searchBookmarks = async (query) => {
+    try {
+      isSearching.value = true;
+      searchResults.value = await bookmarkApi.searchBookmarks(query);
+      return searchResults.value;
+    } catch (error) {
+      console.error('Failed to search bookmarks:', error);
+      return [];
+    } finally {
+      isSearching.value = false;
+    }
+  };
+
+  const clearSearch = () => {
+    searchResults.value = [];
+    isSearching.value = false;
   };
 
   const loadFolders = async () => {
@@ -136,8 +156,12 @@ export const useBookmarkStore = defineStore('bookmarks', () => {
   return {
     bookmarks,
     folders,
+    searchResults,
+    isSearching,
     loadBookmarks,
     loadFolders,
+    searchBookmarks,
+    clearSearch,
     addBookmark,
     updateBookmark,
     updateBookmarkFolder,

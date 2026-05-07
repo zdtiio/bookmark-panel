@@ -7,6 +7,8 @@
         @add-bookmark="showAddBookmark = true"
         @settings="showSettings = true"
         @logout="handleLogout"
+        @search="handleSearch"
+        @search-clear="handleSearchClear"
       />
 
       <main class="main-content">
@@ -41,6 +43,7 @@
           :dragging-id="draggingBookmark?.id"
           :drop-target-index="dropTargetIndex"
           :selected-ids="selectedBookmarkIds"
+          :is-search-result="!!currentSearchQuery"
           @select-folder="selectFolder"
           @toggle-edit="toggleEditMode"
           @open-bookmark="openBookmark"
@@ -148,6 +151,7 @@ const draggingBookmark = ref(null);
 const dropTargetIndex = ref(-1);
 const expandedFolders = ref([]);
 const sidebarCollapsed = ref(false);
+const currentSearchQuery = ref('');
 
 const showAddBookmark = ref(false);
 const showAddFolder = ref(false);
@@ -163,7 +167,9 @@ const targetFolderId = ref(null);
 const filteredBookmarks = computed(() => {
   let result = bookmarks.value;
 
-  if (selectedFolderId.value !== null && selectedFolderId.value !== undefined) {
+  if (currentSearchQuery.value) {
+    result = bookmarkStore.searchResults;
+  } else if (selectedFolderId.value !== null && selectedFolderId.value !== undefined) {
     const folderId = selectedFolderId.value;
     result = result.filter((b) => String(b.folderId) === String(folderId));
   }
@@ -226,12 +232,22 @@ const currentFolderPath = computed(() => {
 });
 
 const goToLogin = () => {
-  emit("navigate", "LoginPage");
-};
+    emit("navigate", "LoginPage");
+  };
 
-const goToRegister = () => {
-  emit("navigate", "RegisterPage");
-};
+  const goToRegister = () => {
+    emit("navigate", "RegisterPage");
+  };
+
+  const handleSearch = async (query) => {
+    currentSearchQuery.value = query;
+    await bookmarkStore.searchBookmarks(query);
+  };
+
+  const handleSearchClear = () => {
+    currentSearchQuery.value = '';
+    bookmarkStore.clearSearch();
+  };
 
 const handleLogout = async () => {
   try {

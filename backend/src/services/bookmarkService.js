@@ -72,6 +72,21 @@ const bookmarkService = {
     return Bookmark.findAll({ where: { userId }, order: [['sortOrder', 'ASC'], ['createdAt', 'DESC']] });
   },
 
+  async searchBookmarks(userId, query) {
+    const searchPattern = `%${query}%`;
+    return Bookmark.findAll({
+      where: {
+        userId,
+        [require('sequelize').Op.or]: [
+          { title: { [require('sequelize').Op.like]: searchPattern } },
+          { url: { [require('sequelize').Op.like]: searchPattern } },
+          { description: { [require('sequelize').Op.like]: searchPattern } }
+        ]
+      },
+      order: [['sortOrder', 'ASC'], ['createdAt', 'DESC']]
+    });
+  },
+
   async getBookmarksByFolder(userId, folderId) {
     return Bookmark.findAll({ where: { userId, folderId }, order: [['sortOrder', 'ASC'], ['createdAt', 'DESC']] });
   },

@@ -29,6 +29,7 @@
         :placeholder="placeholder"
         class="search-input"
         @keyup.enter="handleSearch"
+        @input="handleInput"
       />
     </div>
     <button class="search-submit-btn" @click="handleSearch">
@@ -38,15 +39,21 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Search } from 'lucide-vue-next';
 
 const props = defineProps({
   placeholder: {
     type: String,
     default: '请输入搜索内容'
+  },
+  isLoggedIn: {
+    type: Boolean,
+    default: false
   }
 });
+
+const emit = defineEmits(['search', 'clear', 'web-search']);
 
 const searchQuery = ref('');
 const guestSearchEngine = ref('baidu');
@@ -85,10 +92,20 @@ const selectEngine = (engine) => {
   showEngineDropdown.value = false;
 };
 
+const handleInput = () => {
+  if (props.isLoggedIn) {
+    if (searchQuery.value.trim()) {
+      emit('search', searchQuery.value.trim());
+    } else {
+      emit('clear');
+    }
+  }
+};
+
 const handleSearch = () => {
   if (!searchQuery.value.trim()) return;
-  let searchUrl;
-  searchUrl = searchEngines[guestSearchEngine.value] + encodeURIComponent(searchQuery.value);
+  
+  const searchUrl = searchEngines[guestSearchEngine.value] + encodeURIComponent(searchQuery.value);
   window.open(searchUrl, '_blank');
 };
 
