@@ -1,8 +1,6 @@
 services:
   bookmark-panel:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
+    image: ghcr.io/zdtiio/bookmark-panel:sha-85cb5f9
     container_name: bookmark-panel
     ports:
       - "3000:3000"
