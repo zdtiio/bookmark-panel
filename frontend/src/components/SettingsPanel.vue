@@ -118,6 +118,7 @@ import { useAuthStore } from '../stores/auth';
 import { useConfigStore } from '../stores/config';
 import { tokenApi } from '../api';
 import { ElMessage } from 'element-plus';
+import ElUpload from 'element-plus/es/components/upload/index';
 import { Plus } from 'lucide-vue-next';
 
 const authStore = useAuthStore();

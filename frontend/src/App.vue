@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container" :style="backgroundStyle">
+  <div class="app-container">
     <component 
       :is="views[currentView]" 
       @navigate="handleViewChange"

@@ -11,7 +11,7 @@
     <div 
       class="folder-node-wrapper"
       :class="{ 
-        'selected': folder.id === selectedFolderId, 
+        'selected': String(folder.id) === String(selectedFolderId), 
         'dragging': isDragging, 
         'drag-over': isDragOver,
         'drop-inside': isDragOver && dropIndicator === 'inside',
@@ -44,7 +44,7 @@
         </div>
         
         <span class="folder-label">{{ folder.label }}</span>
-        <span v-if="folder.id === selectedFolderId" class="current-folder-badge"></span>
+        <span v-if="String(folder.id) === String(selectedFolderId)" class="current-folder-badge"></span>
         
         <div class="folder-actions">
           <button 
