@@ -5,10 +5,27 @@
     :class="{ 'child': level > 0 }"
   >
     <div 
+      v-if="dropIndicator === 'before'" 
+      class="drop-indicator before"
+    ></div>
+    <div 
       class="folder-node-wrapper"
-      :class="{ 'selected': folder.id === selectedFolderId }"
+      :class="{ 
+        'selected': folder.id === selectedFolderId, 
+        'dragging': isDragging, 
+        'drag-over': isDragOver,
+        'drop-inside': isDragOver && dropIndicator === 'inside',
+        'drop-before': isDragOver && dropIndicator === 'before',
+        'drop-after': isDragOver && dropIndicator === 'after'
+      }"
       @click="$emit('select', folder)"
       @contextmenu.prevent="$emit('contextmenu', $event, folder)"
+      :draggable="true"
+      @dragstart="handleDragStart"
+      @dragend="handleDragEnd"
+      @dragover.prevent="handleDragOver"
+      @dragleave.prevent="handleDragLeave"
+      @drop="handleDrop"
     >
       <div class="folder-row">
         <button 
@@ -28,9 +45,30 @@
         
         <span class="folder-label">{{ folder.label }}</span>
         <span v-if="folder.id === selectedFolderId" class="current-folder-badge"></span>
+        
+        <div class="folder-actions">
+          <button 
+            class="action-btn edit-btn" 
+            @click.stop="$emit('edit', folder)"
+            title="编辑"
+          >
+            <Pencil />
+          </button>
+          <button 
+            class="action-btn delete-btn" 
+            @click.stop="$emit('delete', folder)"
+            title="删除"
+          >
+            <Trash2 />
+          </button>
+        </div>
       </div>
     </div>
     
+    <div 
+      v-if="dropIndicator === 'after'" 
+      class="drop-indicator after"
+    ></div>
     <transition name="slide-down">
       <div 
         v-if="folder.children && folder.children.length > 0 && expandedFolders.includes(folder.id)" 
@@ -44,8 +82,11 @@
           :selected-folder-id="selectedFolderId"
           :expanded-folders="expandedFolders"
           @select="$emit('select', $event)"
-          @contextmenu="$emit('contextmenu', $event, folder)"
+          @contextmenu="$emit('contextmenu', $event, child)"
           @toggle-expand="$emit('toggle-expand', $event)"
+          @edit="$emit('edit', $event)"
+          @delete="$emit('delete', $event)"
+          @folder-drop="$emit('folder-drop', $event)"
         />
       </div>
     </transition>
@@ -53,9 +94,10 @@
 </template>
 
 <script setup>
-import { Folder, FolderOpen, ChevronDown, ChevronRight } from 'lucide-vue-next';
+import { ref } from 'vue';
+import { Folder, FolderOpen, ChevronDown, ChevronRight, Pencil, Trash2, GripVertical } from 'lucide-vue-next';
 
-defineProps({
+const props = defineProps({
   folder: {
     type: Object,
     required: true
@@ -74,7 +116,93 @@ defineProps({
   }
 });
 
-defineEmits(['select', 'contextmenu', 'toggle-expand']);
+const emit = defineEmits(['select', 'contextmenu', 'toggle-expand', 'edit', 'delete', 'folder-drop']);
+
+const isDragging = ref(false);
+const isDragOver = ref(false);
+const dropIndicator = ref(null);
+
+const handleDragStart = (event) => {
+  isDragging.value = true;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', JSON.stringify({ id: props.folder.id, label: props.folder.label }));
+};
+
+const handleDragEnd = () => {
+  isDragging.value = false;
+  isDragOver.value = false;
+  dropIndicator.value = null;
+};
+
+const handleDragOver = (event) => {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  
+  isDragOver.value = true;
+  
+  const rect = event.currentTarget.getBoundingClientRect();
+  const y = event.clientY - rect.top;
+  const height = rect.height;
+  const topThird = height * 0.25;
+  const bottomThird = height * 0.75;
+  
+  let newIndicator;
+  if (y < topThird) {
+    newIndicator = 'before';
+  } else if (y > bottomThird) {
+    newIndicator = 'after';
+  } else {
+    newIndicator = 'inside';
+  }
+  
+  if (newIndicator !== dropIndicator.value) {
+    dropIndicator.value = newIndicator;
+  }
+};
+
+const handleDragLeave = (event) => {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const { clientX, clientY } = event;
+  
+  if (clientX < rect.left || clientX > rect.right ||
+      clientY < rect.top || clientY > rect.bottom) {
+    isDragOver.value = false;
+    dropIndicator.value = null;
+  }
+};
+
+const handleDrop = (event) => {
+  isDragOver.value = false;
+  try {
+    const draggedData = JSON.parse(event.dataTransfer.getData('text/plain'));
+    if (draggedData.id !== props.folder.id) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const y = event.clientY - rect.top;
+      const height = rect.height;
+      const topThird = height * 0.33;
+      const bottomThird = height * 0.67;
+      
+      let dropType;
+      if (y < topThird) {
+        dropType = 'before';
+      } else if (y > bottomThird) {
+        dropType = 'after';
+      } else {
+        dropType = 'inner';
+      }
+      
+      emit('folder-drop', {
+        draggedId: draggedData.id,
+        targetId: props.folder.id,
+        dropType: dropType
+      });
+    }
+  } catch (e) {
+    console.error('Drop error:', e);
+  } finally {
+    dropIndicator.value = null;
+  }
+};
 </script>
 
 <style scoped>
@@ -103,6 +231,41 @@ defineEmits(['select', 'contextmenu', 'toggle-expand']);
 .folder-node-wrapper.selected {
   background: rgba(64, 158, 255, 0.15);
   border-left: 2px solid #409eff;
+}
+
+.folder-node-wrapper.dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.folder-node-wrapper.drag-over {
+  background: rgba(64, 158, 255, 0.1);
+}
+
+.folder-node-wrapper.drop-inside {
+  background: rgba(64, 158, 255, 0.2);
+  border: 1px solid #409eff;
+}
+
+.folder-node-wrapper.drop-before,
+.folder-node-wrapper.drop-after {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.drop-indicator {
+  height: 3px;
+  background: #409eff;
+  border-radius: 2px;
+  margin: 2px 0;
+  transition: all 0.2s ease;
+}
+
+.drop-indicator.before {
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.5);
+}
+
+.drop-indicator.after {
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.5);
 }
 
 .folder-row {
@@ -191,6 +354,71 @@ defineEmits(['select', 'contextmenu', 'toggle-expand']);
   background: #409eff;
   border-radius: 50%;
   box-shadow: 0 0 8px rgba(64, 158, 255, 0.5);
+}
+
+.folder-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.folder-node-wrapper:hover .folder-actions {
+  opacity: 1;
+}
+
+.folder-actions .action-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.folder-actions .action-btn svg {
+  width: 14px;
+  height: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.2s ease;
+}
+
+.folder-actions .action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.folder-actions .action-btn:hover svg {
+  color: #fff;
+}
+
+.folder-actions .edit-btn {
+  background: rgba(64, 158, 255, 0.2);
+}
+
+.folder-actions .edit-btn svg {
+  color: #409eff;
+}
+
+.folder-actions .edit-btn:hover {
+  background: rgba(64, 158, 255, 0.4);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+.folder-actions .delete-btn {
+  background: rgba(245, 108, 108, 0.2);
+}
+
+.folder-actions .delete-btn svg {
+  color: #f56c6c;
+}
+
+.folder-actions .delete-btn:hover {
+  background: rgba(245, 108, 108, 0.4);
+  box-shadow: 0 2px 8px rgba(245, 108, 108, 0.3);
 }
 
 .folder-children {

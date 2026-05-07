@@ -133,6 +133,9 @@
             @select="selectFolder"
             @contextmenu="handleFolderContextMenu"
             @toggle-expand="toggleFolderExpand"
+            @edit="handleFolderEdit"
+            @delete="handleFolderDelete"
+            @folder-drop="handleFolderDrop"
           />
             
             <div v-if="folderTree.length === 0" class="empty-folders">
@@ -148,7 +151,19 @@
 
         <section class="bookmark-section">
           <div class="bookmark-header">
-            <span class="current-folder-name">{{ currentFolderName }}</span>
+            <div class="folder-breadcrumb">
+              <div 
+                v-for="(item, index) in currentFolderPath" 
+                :key="item.id"
+                class="breadcrumb-item"
+                :class="{ 'active': index === currentFolderPath.length - 1 }"
+                @click="item.id !== null && selectFolder(item.id)"
+              >
+                <Folder v-if="index === 0" class="folder-icon" />
+                <ChevronRight v-else class="chevron-icon" />
+                <span>{{ item.name }}</span>
+              </div>
+            </div>
             <button 
               v-if="selectedFolderId !== null && filteredBookmarks.length > 0"
               @click="toggleEditMode"
@@ -289,6 +304,15 @@
                 <span v-else style="color: rgba(255,255,255,0.5);">选择父文件夹（可选）</span>
               </template>
             </el-tree-select>
+            <div v-if="folderForm.parentId !== null && editingFolder" style="margin-top: 8px;">
+              <button 
+                type="button" 
+                @click="folderForm.parentId = null" 
+                class="clear-parent-btn"
+              >
+                清空父文件夹（设为顶级）
+              </button>
+            </div>
             <div v-if="folderForm.parentId === null" style="margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.5);">
               当前为顶级文件夹
             </div>
@@ -403,13 +427,21 @@ const treeProps = {
   value: 'id'
 };
 
-const currentFolderName = computed(() => {
+const currentFolderPath = computed(() => {
   if (selectedFolderId.value === null || selectedFolderId.value === undefined) {
     const rootFolder = folders.value.find(f => !f.parentId);
-    return rootFolder ? rootFolder.name : '全部书签';
+    return rootFolder ? [{ id: rootFolder.id, name: rootFolder.name }] : [{ id: null, name: '全部书签' }];
   }
-  const folder = folders.value.find(f => f.id === selectedFolderId.value);
-  return folder ? folder.name : '未知文件夹';
+  const folderId = selectedFolderId.value;
+  const path = [];
+  let currentId = folderId;
+  while (currentId) {
+    const folder = folders.value.find(f => String(f.id) === String(currentId));
+    if (!folder) break;
+    path.unshift({ id: folder.id, name: folder.name });
+    currentId = folder.parentId;
+  }
+  return path.length > 0 ? path : [{ id: null, name: '未知文件夹' }];
 });
 
 const selectedParentFolderPath = computed(() => {
@@ -530,8 +562,12 @@ const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value;
 };
 
-const selectFolder = (folder) => {
-  selectedFolderId.value = folder.id;
+const selectFolder = (folderOrId) => {
+  if (typeof folderOrId === 'object') {
+    selectedFolderId.value = folderOrId.id;
+  } else {
+    selectedFolderId.value = folderOrId;
+  }
 };
 
 const toggleFolderExpand = (folderId) => {
@@ -574,15 +610,38 @@ const handleFolderContextMenu = async (event, node) => {
 };
 
 const editFolder = (folder) => {
-  editingFolder.value = folder;
-  folderForm.value = { name: folder.name, parentId: folder.parentId || null };
+  const originalFolder = folders.value.find(f => f.id === folder.id);
+  if (originalFolder) {
+    editingFolder.value = originalFolder;
+    folderForm.value = { name: originalFolder.name, parentId: originalFolder.parentId || null };
+  } else {
+    editingFolder.value = folder;
+    folderForm.value = { name: folder.label || folder.name || '', parentId: folder.parentId || null };
+  }
   showAddFolder.value = true;
+};
+
+const handleFolderEdit = (folder) => {
+  editFolder(folder);
+};
+
+const handleFolderDelete = async (folder) => {
+  deleteFolder(folder);
 };
 
 const deleteFolder = async (folder) => {
   try {
+    const hasChildren = folder.children && folder.children.length > 0;
+    const folderBookmarks = bookmarks.value.filter(b => b.folderId === folder.id);
+    const hasBookmarks = folderBookmarks.length > 0;
+    
+    if (hasChildren || hasBookmarks) {
+      ElMessage.warning('请先将该文件夹内的数据移动到其他文件夹后再进行删除操作');
+      return;
+    }
+    
     await ElMessageBox.confirm(
-      `确定要删除文件夹「${folder.label || folder.name}」吗？此操作会同时删除该文件夹下的所有书签。`,
+      `确定要删除文件夹「${folder.label || folder.name}」吗？`,
       '确认删除',
       {
         confirmButtonText: '确定',
@@ -595,8 +654,14 @@ const deleteFolder = async (folder) => {
       selectedFolderId.value = null;
     }
     ElMessage.success('删除成功');
-  } catch {
-    ElMessage.info('已取消删除');
+  } catch (error) {
+    if (error && error.message && error.message.includes('Cannot delete folder')) {
+      ElMessage.warning('请先将该文件夹内的数据移动到其他文件夹后再进行删除操作');
+    } else if (error !== 'cancel') {
+      ElMessage.error('删除失败');
+    } else {
+      ElMessage.info('已取消删除');
+    }
   }
 };
 
@@ -604,19 +669,48 @@ const allowFolderDrop = (draggingNode, dropNode) => {
   return true;
 };
 
-const handleFolderDrop = async (draggingNode, dropNode, dropType) => {
-  const draggedFolder = folders.value.find(f => f.id === draggingNode.data.id);
-  if (!draggedFolder) return;
+const handleFolderDrop = async (dropData) => {
+  const { draggedId, targetId, dropType } = dropData;
+  const draggedFolder = folders.value.find(f => f.id === draggedId);
+  const targetFolder = folders.value.find(f => f.id === targetId);
+  
+  if (!draggedFolder || !targetFolder) return;
 
-  let newParentId = null;
-  if (dropNode && dropType !== 'before' && dropType !== 'after') {
-    newParentId = dropNode.data.id;
+  if (dropType === 'inner') {
+    if (targetId === draggedFolder.id) return;
+    await bookmarkStore.updateFolderParent(draggedFolder.id, targetId);
+    await bookmarkStore.loadFolders();
+    ElMessage.success('文件夹已移动到目标文件夹');
+  } else {
+    const targetParentId = targetFolder.parentId;
+    const draggedParentId = draggedFolder.parentId;
+    
+    if (targetParentId !== draggedParentId) {
+      await bookmarkStore.updateFolderParent(draggedFolder.id, targetParentId);
+    }
+    
+    const siblings = folders.value.filter(f => f.parentId === targetParentId);
+    const sortedSiblings = [...siblings].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    
+    const targetIndex = sortedSiblings.findIndex(s => s.id === targetId);
+    let newIndex = targetIndex;
+    
+    if (dropType === 'after') {
+      newIndex = targetIndex + 1;
+    }
+    
+    const filtered = sortedSiblings.filter(s => s.id !== draggedId);
+    filtered.splice(newIndex, 0, draggedFolder);
+    
+    const updateData = filtered.map((folder, index) => ({
+      id: folder.id,
+      sortOrder: index
+    }));
+    
+    await bookmarkStore.updateFolderOrder(updateData);
+    await bookmarkStore.loadFolders();
+    ElMessage.success('文件夹顺序已更新');
   }
-
-  if (newParentId === draggedFolder.id) return;
-
-  await bookmarkStore.updateFolderParent(draggedFolder.id, newParentId);
-  ElMessage.success('文件夹移动成功');
 };
 
 const toggleEditMode = () => {
@@ -1760,9 +1854,50 @@ onUnmounted(() => {
   min-height: 0;
 }
 
-.current-folder-name {
-  font-size: 18px;
+.folder-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+.breadcrumb-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.breadcrumb-item.active {
+  color: #409eff;
   font-weight: 600;
+  background: rgba(64, 158, 255, 0.15);
+}
+
+.breadcrumb-item .folder-icon,
+.breadcrumb-item .chevron-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.breadcrumb-item .folder-icon {
+  color: #67c23a;
+}
+
+.breadcrumb-item .chevron-icon {
+  color: rgba(255, 255, 255, 0.4);
+  margin-right: 2px;
 }
 
 .edit-mode-btn {
@@ -1994,6 +2129,22 @@ onUnmounted(() => {
   color: #f56c6c;
   font-size: 12px;
   cursor: pointer;
+}
+
+.clear-parent-btn {
+  background: rgba(245, 108, 108, 0.15);
+  border: 1px solid rgba(245, 108, 108, 0.3);
+  color: #f56c6c;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-parent-btn:hover {
+  background: rgba(245, 108, 108, 0.3);
+  border-color: rgba(245, 108, 108, 0.5);
 }
 
 .bookmark-card.drop-before {

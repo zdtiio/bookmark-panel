@@ -43,9 +43,9 @@ const folderService = {
   },
 
   async updateFolderOrder(userId, folders) {
-    const updatePromises = folders.map((folder, index) => {
+    const updatePromises = folders.map((folder) => {
       return Folder.update(
-        { sortOrder: index },
+        { sortOrder: folder.sortOrder },
         { where: { userId, id: folder.id } }
       );
     });
