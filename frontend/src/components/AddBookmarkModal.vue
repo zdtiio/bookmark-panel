@@ -232,7 +232,7 @@ const handleSave = () => {
 };
 </script>
 
-<style scoped>
+<style>
 .title-input-group {
   display: flex;
   gap: 8px;
@@ -244,5 +244,304 @@ const handleSave = () => {
 
 .required-star {
   color: #f56c6c;
+}
+
+.el-dialog {
+  background: rgba(30, 30, 50, 0.98) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4) !important;
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding: 20px 24px !important;
+  background: transparent !important;
+}
+
+.el-dialog__title {
+  color: #fff !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+}
+
+.el-dialog__body {
+  padding: 24px !important;
+  background: transparent !important;
+}
+
+.el-dialog__footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding: 16px 24px !important;
+  background: transparent !important;
+}
+
+.el-form-item__label {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-weight: 500 !important;
+}
+
+.el-input__wrapper {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px !important;
+  transition: all 0.3s ease !important;
+}
+
+.el-input__wrapper:hover {
+  border-color: rgba(64, 158, 255, 0.5) !important;
+}
+
+.el-input__wrapper.is-focus {
+  border-color: #409eff !important;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.1) !important;
+}
+
+.el-input__inner {
+  color: #fff !important;
+  background: transparent !important;
+}
+
+.el-input__inner::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.el-textarea__inner {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px !important;
+  color: #fff !important;
+}
+
+.el-textarea__inner:hover {
+  border-color: rgba(64, 158, 255, 0.5) !important;
+}
+
+.el-textarea__inner:focus {
+  border-color: #409eff !important;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.1) !important;
+}
+
+.el-textarea__inner::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.el-select-dropdown {
+  background: rgba(30, 30, 50, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+}
+
+.el-select-dropdown__wrap {
+  background: transparent !important;
+}
+
+.el-select-dropdown__list {
+  background: transparent !important;
+}
+
+.el-select-dropdown__item {
+  color: #fff !important;
+}
+
+.el-select-dropdown__item:hover {
+  background: rgba(64, 158, 255, 0.2) !important;
+}
+
+.el-tree-select .el-input__wrapper {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px !important;
+}
+
+.el-select__wrapper {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 12px !important;
+}
+
+.el-select__placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.el-select__placeholder.is-transparent {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.el-tree-select-dropdown {
+  background: rgba(30, 30, 50, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+}
+
+.el-tree-select-dropdown .el-scrollbar {
+  background: transparent !important;
+}
+
+.el-tree-select-dropdown .el-select-dropdown__wrap {
+  background: transparent !important;
+}
+
+.el-tree-select-dropdown .el-select-dropdown__list {
+  background: transparent !important;
+}
+
+.el-tree-select-dropdown .el-tree {
+  background: transparent !important;
+}
+
+.el-tree-select-dropdown .el-tree-node__content {
+  background: transparent !important;
+}
+
+.el-tree-select-dropdown .el-tree-node__content:hover {
+  background: rgba(64, 158, 255, 0.15) !important;
+}
+
+.el-tree-node__label {
+  color: #fff !important;
+}
+
+.el-tree-node:hover .el-tree-node__label {
+  color: #409eff !important;
+}
+
+.el-tree-select-dropdown .el-tree-node.is-current > .el-tree-node__content {
+  background: rgba(64, 158, 255, 0.2) !important;
+}
+
+.el-tree-select-dropdown .el-tree-node.is-current .el-tree-node__label {
+  color: #409eff !important;
+}
+
+.el-tree-select-dropdown .el-tree-node__content .el-tree-node__expand-icon {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.el-tree-select-dropdown .el-tree-node__content .el-tree-node__expand-icon:hover {
+  color: #409eff !important;
+}
+
+.el-tree-select-dropdown .el-tree-node__content .el-tree-node__expand-icon.is-leaf {
+  color: transparent !important;
+}
+
+.el-tree-select-dropdown .el-tree-node__content .el-checkbox__inner {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.el-tree-select-dropdown .el-tree-node__content .el-checkbox__input.is-checked .el-checkbox__inner {
+  background: #409eff !important;
+  border-color: #409eff !important;
+}
+
+.el-popper {
+  background: rgba(30, 30, 50, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.el-popper .el-popper__arrow::before {
+  background: rgba(30, 30, 50, 0.98) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.el-popper .el-select-dropdown {
+  background: transparent !important;
+  border: none !important;
+}
+
+.el-popper .el-select-dropdown__wrap {
+  background: transparent !important;
+}
+
+.el-popper .el-select-dropdown__list {
+  background: transparent !important;
+}
+
+.el-popper .el-tree {
+  background: transparent !important;
+}
+
+.el-popper .el-tree-node__content {
+  background: transparent !important;
+}
+
+.el-popper .el-tree-node__content:hover {
+  background: rgba(64, 158, 255, 0.15) !important;
+}
+
+.el-popper .el-tree-node__label {
+  color: #fff !important;
+}
+
+.el-popper .el-tree-node:hover .el-tree-node__label {
+  color: #409eff !important;
+}
+
+.el-popper .el-tree-node.is-current > .el-tree-node__content {
+  background: rgba(64, 158, 255, 0.2) !important;
+}
+
+.el-popper .el-tree-node.is-current .el-tree-node__label {
+  color: #409eff !important;
+}
+
+.el-popper .el-tree-node__content .el-tree-node__expand-icon {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.el-popper .el-tree-node__content .el-tree-node__expand-icon:hover {
+  color: #409eff !important;
+}
+
+.el-popper .el-tree-node__content .el-tree-node__expand-icon.is-leaf {
+  color: transparent !important;
+}
+
+.el-popper .el-tree-node__content .el-checkbox__inner {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.el-popper .el-tree-node__content .el-checkbox__input.is-checked .el-checkbox__inner {
+  background: #409eff !important;
+  border-color: #409eff !important;
+}
+
+.el-button--primary {
+  background: linear-gradient(135deg, #409eff 0%, #67c23a 100%) !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  padding: 10px 24px !important;
+}
+
+.el-button--primary:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(64, 158, 255, 0.4) !important;
+}
+
+.el-button--default {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-radius: 10px !important;
+  font-weight: 500 !important;
+  padding: 10px 24px !important;
+}
+
+.el-button--default:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.el-dialog__close {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.el-dialog__close:hover {
+  color: #fff !important;
 }
 </style>
