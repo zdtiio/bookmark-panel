@@ -5,9 +5,10 @@
       'dragging': draggingId === bookmark.id,
       'drop-before': dropTargetIndex === index && draggingId !== bookmark.id,
       'drop-after': dropTargetIndex === index + 1 && draggingId !== bookmark.id,
-      'edit-mode': isEditMode
+      'edit-mode': isEditMode,
+      'selected': isSelected
     }"
-    @click="$emit('click', bookmark)"
+    @click="handleClick"
     :draggable="isEditMode"
     @dragstart="handleDragStart($event, bookmark)"
     @dragend="$emit('dragend')"
@@ -19,6 +20,16 @@
   >
     <div v-if="isEditMode" class="drag-handle">
       <GripVertical />
+    </div>
+    <div v-if="isEditMode" class="checkbox-wrapper" @click.stop="handleSelect">
+      <input 
+        type="checkbox" 
+        :checked="isSelected" 
+        class="checkbox"
+      />
+      <div class="checkbox-custom" :class="{ 'checked': isSelected }">
+        <Check v-if="isSelected" />
+      </div>
     </div>
     <div class="bookmark-icon" v-if="showIcons">
       <img 
@@ -47,7 +58,7 @@
 </template>
 
 <script setup>
-import { GripVertical, Pencil, Trash2 } from 'lucide-vue-next';
+import { GripVertical, Pencil, Trash2, Check } from 'lucide-vue-next';
 
 const props = defineProps({
   bookmark: {
@@ -73,10 +84,14 @@ const props = defineProps({
   dropTargetIndex: {
     type: Number,
     default: -1
+  },
+  isSelected: {
+    type: Boolean,
+    default: false
   }
 });
 
-defineEmits([
+const emit = defineEmits([
   'click',
   'edit',
   'delete',
@@ -86,8 +101,21 @@ defineEmits([
   'drop',
   'touchstart',
   'touchmove',
-  'touchend'
+  'touchend',
+  'select'
 ]);
+
+const handleClick = () => {
+  if (props.isEditMode) {
+    emit('select', props.bookmark);
+  } else {
+    emit('click', props.bookmark);
+  }
+};
+
+const handleSelect = () => {
+  emit('select', props.bookmark);
+};
 
 const handleDragStart = (event, bookmark) => {
   event.dataTransfer.effectAllowed = 'move';
@@ -147,6 +175,11 @@ const getTextIconStyle = (title) => {
 .bookmark-card.edit-mode {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(64, 158, 255, 0.3);
+}
+
+.bookmark-card.selected {
+  background: rgba(64, 158, 255, 0.25);
+  border-color: rgba(64, 158, 255, 0.6);
 }
 
 .bookmark-card.dragging {
@@ -221,6 +254,50 @@ const getTextIconStyle = (title) => {
   gap: 6px;
   opacity: 1;
   transition: all 0.2s ease;
+}
+
+.checkbox-wrapper {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.checkbox-custom {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.checkbox-custom:hover {
+  border-color: rgba(64, 158, 255, 0.8);
+  background: rgba(64, 158, 255, 0.1);
+}
+
+.checkbox-custom.checked {
+  background: #409eff;
+  border-color: #409eff;
+}
+
+.checkbox-custom svg {
+  width: 12px;
+  height: 12px;
+  color: #fff;
 }
 
 .action-btn {

@@ -116,6 +116,14 @@ export const useBookmarkStore = defineStore('bookmarks', () => {
     }
   };
 
+  const batchUpdateBookmarkFolder = async (ids, folderId) => {
+    try {
+      await bookmarkApi.batchUpdateBookmarkFolder(ids, folderId);
+    } catch (error) {
+      console.error('Failed to batch update bookmark folder:', error);
+    }
+  };
+
   const updateBookmarkOrder = async (bookmarksData) => {
     try {
       await bookmarkApi.updateBookmarkOrder(bookmarksData);
@@ -133,6 +141,7 @@ export const useBookmarkStore = defineStore('bookmarks', () => {
     addBookmark,
     updateBookmark,
     updateBookmarkFolder,
+    batchUpdateBookmarkFolder,
     updateBookmarkOrder,
     deleteBookmark,
     addFolder,

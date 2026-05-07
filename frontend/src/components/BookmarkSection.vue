@@ -25,6 +25,40 @@
       </button>
     </div>
 
+    <div v-if="isEditMode" class="batch-actions">
+      <div class="select-all-wrapper">
+        <input 
+          type="checkbox" 
+          :checked="isAllSelected" 
+          id="select-all"
+          @change="$emit('toggle-select-all')"
+          class="checkbox"
+        />
+        <label for="select-all" class="checkbox-custom" :class="{ 'checked': isAllSelected }">
+          <Check v-if="isAllSelected" />
+        </label>
+        <span class="select-all-text">全选</span>
+      </div>
+      <div class="batch-buttons">
+        <button 
+          v-if="selectedCount > 0"
+          @click="$emit('batch-move')"
+          class="batch-btn move-btn"
+        >
+          <Move />
+          <span>移动到文件夹</span>
+        </button>
+        <button 
+          v-if="selectedCount > 0"
+          @click="$emit('batch-delete')"
+          class="batch-btn delete-btn"
+        >
+          <Trash2 />
+          <span>删除选中 ({{ selectedCount }})</span>
+        </button>
+      </div>
+    </div>
+
     <div class="bookmark-content">
       <div v-if="bookmarks.length === 0" class="empty-state">
         <BookmarkMinus />
@@ -44,9 +78,11 @@
           :show-icons="showIcons"
           :dragging-id="draggingId"
           :drop-target-index="dropTargetIndex"
+          :is-selected="selectedIds.includes(bookmark.id)"
           @click="$emit('open-bookmark', bookmark)"
           @edit="$emit('edit-bookmark', bookmark)"
           @delete="$emit('delete-bookmark', bookmark)"
+          @select="$emit('select-bookmark', $event)"
           @dragstart="$emit('bookmark-dragstart', $event, bookmark)"
           @dragend="$emit('bookmark-dragend')"
           @dragover="$emit('bookmark-dragover', $event, index)"
@@ -61,10 +97,11 @@
 </template>
 
 <script setup>
-import { Folder, ChevronRight, Pencil, BookmarkMinus } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { Folder, ChevronRight, Pencil, BookmarkMinus, Check, Move, Trash2 } from 'lucide-vue-next';
 import BookmarkCard from './BookmarkCard.vue';
 
-defineProps({
+const props = defineProps({
   bookmarks: {
     type: Array,
     required: true
@@ -92,7 +129,18 @@ defineProps({
   dropTargetIndex: {
     type: Number,
     default: -1
+  },
+  selectedIds: {
+    type: Array,
+    default: () => []
   }
+});
+
+const selectedCount = computed(() => props.selectedIds.length);
+
+const isAllSelected = computed(() => {
+  return props.bookmarks.length > 0 && 
+         props.bookmarks.every(b => props.selectedIds.includes(b.id));
 });
 
 defineEmits([
@@ -101,6 +149,10 @@ defineEmits([
   'open-bookmark',
   'edit-bookmark',
   'delete-bookmark',
+  'select-bookmark',
+  'toggle-select-all',
+  'batch-move',
+  'batch-delete',
   'bookmark-dragstart',
   'bookmark-dragend',
   'bookmark-dragover',
@@ -125,6 +177,107 @@ defineEmits([
   justify-content: space-between;
   margin-bottom: 16px;
   flex-shrink: 0;
+}
+
+.batch-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.select-all-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.select-all-wrapper .checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.select-all-wrapper .checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.select-all-wrapper .checkbox-custom:hover {
+  border-color: rgba(64, 158, 255, 0.8);
+}
+
+.select-all-wrapper .checkbox-custom.checked {
+  background: #409eff;
+  border-color: #409eff;
+}
+
+.select-all-wrapper .checkbox-custom svg {
+  width: 12px;
+  height: 12px;
+  color: #fff;
+}
+
+.select-all-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.batch-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.batch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.batch-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.batch-btn.move-btn {
+  background: rgba(64, 158, 255, 0.3);
+  color: #409eff;
+}
+
+.batch-btn.move-btn:hover {
+  background: rgba(64, 158, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.batch-btn.delete-btn {
+  background: rgba(245, 108, 108, 0.3);
+  color: #f56c6c;
+}
+
+.batch-btn.delete-btn:hover {
+  background: rgba(245, 108, 108, 0.5);
+  transform: translateY(-1px);
 }
 
 .bookmark-content {

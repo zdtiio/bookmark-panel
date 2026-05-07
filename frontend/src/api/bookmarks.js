@@ -48,6 +48,10 @@ const bookmarkApi = {
     return axiosInstance.put(`/bookmarks/${id}/folder`, { folderId });
   },
 
+  batchUpdateBookmarkFolder: async (ids, folderId) => {
+    return axiosInstance.put('/bookmarks/batch/folder', { ids, folderId });
+  },
+
   updateBookmarkOrder: async (bookmarks) => {
     return axiosInstance.put('/bookmarks/order', { bookmarks });
   },

@@ -103,6 +103,50 @@
           </el-upload>
         </div>
       </el-tab-pane>
+
+      <el-tab-pane label="书签导入导出" name="bookmark-import-export">
+        <div class="backup-section">
+          <h3>导出书签</h3>
+          <p>导出HTML格式书签，可导入到Chrome、360等浏览器</p>
+          <el-button type="primary" @click="exportBookmarks">导出书签</el-button>
+        </div>
+        <div class="backup-section">
+          <h3>导入书签</h3>
+          <p>从Chrome、360等浏览器导出的HTML文件导入书签</p>
+          <el-form-item label="目标文件夹" required>
+            <template #label>
+              目标文件夹 <span class="required-star">*</span>
+            </template>
+            <el-tree-select
+              v-model="importFolderId"
+              :data="folderTree"
+              :props="treeProps"
+              placeholder="请选择文件夹"
+              :render-after-expand="false"
+              :check-strictly="true"
+              :expand-on-click-node="false"
+              :disabled="folders.length === 0"
+            >
+              <template #empty>
+                <div style="padding: 12px; text-align: center; color: rgba(255,255,255,0.5);">
+                  暂无文件夹，请先创建
+                </div>
+              </template>
+            </el-tree-select>
+          </el-form-item>
+          <el-upload
+            :action="''"
+            :headers="{ Authorization: `Bearer ${authStore.token}` }"
+            :on-change="handleBookmarkFileChange"
+            :before-upload="beforeBookmarkImport"
+            accept=".html"
+            class="import-upload"
+          >
+            <el-button>选择HTML文件</el-button>
+          </el-upload>
+          <p v-if="importingBookmarks" class="importing-text">正在导入...</p>
+        </div>
+      </el-tab-pane>
     </el-tabs>
 
     <div class="settings-footer">
@@ -116,7 +160,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { useConfigStore } from '../stores/config';
-import { tokenApi } from '../api';
+import { tokenApi, bookmarkApi, folderApi } from '../api';
 import { ElMessage } from 'element-plus';
 import ElUpload from 'element-plus/es/components/upload/index';
 import { Plus } from 'lucide-vue-next';
@@ -134,6 +178,29 @@ const tokens = ref([]);
 const showCreateToken = ref(false);
 const showNewToken = ref(false);
 const newTokenValue = ref('');
+const importingBookmarks = ref(false);
+const folders = ref([]);
+const importFolderId = ref('');
+
+const treeProps = {
+  label: 'label',
+  children: 'children',
+  value: 'id'
+};
+
+const folderTree = computed(() => {
+  const buildTree = (parentId = null) => {
+    return folders.value
+      .filter(f => f.parentId === parentId)
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+      .map(folder => ({
+        id: folder.id,
+        label: folder.name,
+        children: buildTree(folder.id)
+      }));
+  };
+  return buildTree(null);
+});
 
 const tokenForm = ref({
   name: ''
@@ -186,25 +253,89 @@ const deleteToken = async (id) => {
 };
 
 const exportData = async () => {
-  try {
-    const response = await fetch('/api/configs/export', {
-      headers: { Authorization: `Bearer ${authStore.token}` }
-    });
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
-    a.download = `bookmark-backup-${dateStr}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    ElMessage.success('导出成功');
-  } catch (error) {
-    ElMessage.error('导出失败');
-  }
-};
+    try {
+      const response = await fetch('/api/configs/export', {
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      });
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+      a.download = `bookmark-backup-${dateStr}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      ElMessage.success('导出成功');
+    } catch (error) {
+      ElMessage.error('导出失败');
+    }
+  };
+
+  const exportBookmarks = async () => {
+    try {
+      const response = await fetch('/api/bookmarks/export?format=html', {
+        headers: { Authorization: `Bearer ${authStore.token}` }
+      });
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const dateStr = `${now.getFullYear()}_${pad(now.getMonth() + 1)}_${pad(now.getDate())}`;
+      a.download = `chrome_bookmarks_${dateStr}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+      ElMessage.success('书签导出成功');
+    } catch (error) {
+      ElMessage.error('书签导出失败');
+    }
+  };
+
+  const handleBookmarkFileChange = async (file) => {
+    if (!importFolderId.value) {
+      ElMessage.error('请先选择目标文件夹');
+      return;
+    }
+    
+    importingBookmarks.value = true;
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const htmlContent = e.target.result;
+        try {
+          const importResponse = await fetch('/api/bookmarks/import', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authStore.token}`
+            },
+            body: JSON.stringify({ 
+              format: 'html', 
+              htmlContent,
+              folderId: importFolderId.value
+            })
+          });
+          const result = await importResponse.json();
+          ElMessage.success(`成功导入 ${result.count} 个书签，创建 ${result.foldersCreated || 0} 个子文件夹`);
+        } catch (error) {
+          ElMessage.error('书签导入失败');
+        } finally {
+          importingBookmarks.value = false;
+        }
+      };
+      reader.readAsText(file.raw, 'UTF-8');
+    } catch (error) {
+      ElMessage.error('读取文件失败');
+      importingBookmarks.value = false;
+    }
+  };
+
+  const beforeBookmarkImport = () => {
+    return false;
+  };
 
 const handleImportSuccess = () => {
   ElMessage.success('导入成功');
@@ -234,8 +365,17 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('zh-CN');
 };
 
+const loadFolders = async () => {
+  try {
+    folders.value = await folderApi.getAllFolders();
+  } catch (error) {
+    console.error('Failed to load folders:', error);
+  }
+};
+
 onMounted(() => {
   loadTokens();
+  loadFolders();
 });
 </script>
 

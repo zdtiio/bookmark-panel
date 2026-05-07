@@ -50,6 +50,16 @@ const bookmarkController = {
     }
   },
 
+  async batchUpdateBookmarkFolder(req, res) {
+    try {
+      const { ids, folderId } = req.body;
+      await bookmarkService.batchUpdateBookmarkFolder(req.user.id, ids, folderId);
+      res.json({ message: 'Bookmarks moved successfully' });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  },
+
   async updateBookmarkOrder(req, res) {
     try {
       const { bookmarks } = req.body;
@@ -77,19 +87,23 @@ const bookmarkController = {
 
   async importBookmarks(req, res) {
     try {
-      const { format, bookmarks } = req.body;
+      const { format, bookmarks, htmlContent, folderId } = req.body;
       let parsedBookmarks = bookmarks;
       
-      if (format === 'chrome') {
+      if (format === 'html') {
+        parsedBookmarks = bookmarkService.parseHtmlBookmarks(htmlContent);
+      } else if (format === 'chrome') {
         parsedBookmarks = this.parseChromeBookmarks(bookmarks);
       } else if (format === 'firefox') {
         parsedBookmarks = this.parseFirefoxBookmarks(bookmarks);
-      } else if (format === 'edge') {
-        parsedBookmarks = this.parseEdgeBookmarks(bookmarks);
       }
 
-      const created = await bookmarkService.importBookmarks(req.user.id, parsedBookmarks);
-      res.json({ message: `Imported ${created.length} bookmarks`, count: created.length });
+      const result = await bookmarkService.importBookmarks(req.user.id, parsedBookmarks, folderId);
+      res.json({ 
+        message: `Imported ${result.bookmarks.length} bookmarks`, 
+        count: result.bookmarks.length,
+        foldersCreated: result.foldersCreated 
+      });
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
@@ -97,12 +111,12 @@ const bookmarkController = {
 
   async exportBookmarks(req, res) {
     try {
-      const format = req.query.format || 'chrome';
+      const format = req.query.format || 'html';
       const data = await bookmarkService.exportBookmarks(req.user.id, format);
       
-      if (format === 'edge') {
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Content-Disposition', 'attachment; filename="bookmarks.html"');
+      if (format === 'html') {
+        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+        res.setHeader('Content-Disposition', `attachment; filename="bookmarks_${Date.now()}.html"`);
       } else {
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', 'attachment; filename="bookmarks.json"');
