@@ -10,7 +10,8 @@ export const useConfigStore = defineStore('config', () => {
     showFolders: true,
     backgroundColor: '#1a1a2e',
     backgroundType: 'color',
-    backgroundImage: ''
+    backgroundImage: '',
+    defaultFolderId: null
   });
 
   const loadConfig = async () => {

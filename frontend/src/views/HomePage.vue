@@ -240,6 +240,7 @@ const handleLogout = async () => {
       cancelButtonText: "取消",
       type: "warning",
     });
+    localStorage.removeItem("selectedFolderId");
     await authStore.logout();
     ElMessage.success("登出成功");
     window.location.reload();
@@ -763,6 +764,38 @@ const loadUserData = async () => {
         return;
       }
     }
+
+    const defaultFolderId = configStore.config.defaultFolderId;
+    if (defaultFolderId !== null && defaultFolderId !== undefined) {
+      const defaultFolderExists = folders.value.some(
+        (f) => String(f.id) === String(defaultFolderId),
+      );
+      if (defaultFolderExists) {
+        selectedFolderId.value = defaultFolderId;
+
+        const parentIds = [];
+        let currentId = defaultFolderId;
+        while (currentId) {
+          const folder = folders.value.find(
+            (f) => String(f.id) === String(currentId),
+          );
+          if (!folder) break;
+          if (folder.parentId) {
+            parentIds.unshift(folder.parentId);
+          }
+          currentId = folder.parentId;
+        }
+
+        parentIds.forEach((parentId) => {
+          if (!expandedFolders.value.includes(parentId)) {
+            expandedFolders.value.push(parentId);
+          }
+        });
+
+        return;
+      }
+    }
+
     const rootFolder = folders.value.find((f) => !f.parentId);
     if (rootFolder) {
       selectedFolderId.value = rootFolder.id;

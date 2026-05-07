@@ -24,6 +24,25 @@
           <el-form-item>
             <el-switch v-model="localConfig.showFolders" active-text="显示文件夹" inactive-text="隐藏文件夹" />
           </el-form-item>
+          <el-form-item label="默认文件夹">
+            <el-tree-select
+              v-model="localConfig.defaultFolderId"
+              :data="defaultFolderTree"
+              :props="treeProps"
+              placeholder="请选择登录后默认显示的文件夹"
+              :render-after-expand="false"
+              :check-strictly="true"
+              :expand-on-click-node="false"
+              class="folder-select"
+            >
+              <template #empty>
+                <div style="padding: 12px; text-align: center; color: rgba(255,255,255,0.5);">
+                  暂无文件夹，请先创建
+                </div>
+              </template>
+            </el-tree-select>
+            <span class="form-tip">该设置仅在首次登录时生效，刷新页面将显示上次访问的文件夹</span>
+          </el-form-item>
         </el-form>
       </el-tab-pane>
 
@@ -200,6 +219,21 @@ const folderTree = computed(() => {
       }));
   };
   return buildTree(null);
+});
+
+const defaultFolderTree = computed(() => {
+  const buildTree = (parentId = null) => {
+    return folders.value
+      .filter(f => f.parentId === parentId)
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+      .map(folder => ({
+        id: folder.id,
+        label: folder.name,
+        children: buildTree(folder.id)
+      }));
+  };
+  const tree = buildTree(null);
+  return [{ id: null, label: '全部书签', children: tree }];
 });
 
 const tokenForm = ref({
@@ -446,6 +480,17 @@ onMounted(() => {
 }
 
 .import-upload {
-  margin-top: 8px;
-}
+    margin-top: 8px;
+  }
+
+  .form-tip {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #999;
+  }
+
+  .folder-select {
+    width: 100%;
+  }
 </style>
