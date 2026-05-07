@@ -155,8 +155,10 @@ const handleDrop = (dropData) => {
 .folder-tree-container {
   flex: 1;
   overflow-y: auto;
+  overflow-x: auto;
   padding-right: 4px;
   min-height: 0;
+  white-space: nowrap;
 }
 
 .folder-tree-container::-webkit-scrollbar {

@@ -208,20 +208,23 @@ const handleDrop = (event) => {
 <style scoped>
 .folder-tree-item {
   margin-bottom: 2px;
+  min-width: 100%;
 }
 
 .folder-tree-item.child {
-  padding-left: 20px;
+  padding-left: 12px;
 }
 
 .folder-node-wrapper {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
   margin: 2px 0;
+  min-width: 100%;
+  box-sizing: border-box;
 }
 
 .folder-node-wrapper:hover {
@@ -287,6 +290,7 @@ const handleDrop = (event) => {
   border-radius: 4px;
   transition: all 0.2s ease;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .expand-btn:hover {
@@ -308,6 +312,7 @@ const handleDrop = (event) => {
 .expand-placeholder {
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
 }
 
 .folder-icon-wrapper {
@@ -316,6 +321,7 @@ const handleDrop = (event) => {
   justify-content: center;
   width: 24px;
   height: 24px;
+  flex-shrink: 0;
 }
 
 .folder-icon {
@@ -339,8 +345,6 @@ const handleDrop = (event) => {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.85);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .folder-node-wrapper.selected .folder-label {
@@ -354,6 +358,7 @@ const handleDrop = (event) => {
   background: #409eff;
   border-radius: 50%;
   box-shadow: 0 0 8px rgba(64, 158, 255, 0.5);
+  flex-shrink: 0;
 }
 
 .folder-actions {
@@ -361,6 +366,7 @@ const handleDrop = (event) => {
   gap: 4px;
   opacity: 0;
   transition: opacity 0.2s ease;
+  flex-shrink: 0;
 }
 
 .folder-node-wrapper:hover .folder-actions {
