@@ -43,7 +43,9 @@
       </div>
     </div>
     <div class="bookmark-info">
-      <h4>{{ bookmark.title }}</h4>
+      <CustomTooltip :text="bookmark.title">
+        <h4>{{ bookmark.title }}</h4>
+      </CustomTooltip>
       <p class="bookmark-url">{{ bookmark.url }}</p>
     </div>
     <div v-if="isEditMode" class="bookmark-actions">
@@ -59,6 +61,7 @@
 
 <script setup>
 import { GripVertical, Pencil, Trash2, Check } from 'lucide-vue-next';
+import CustomTooltip from './CustomTooltip.vue';
 
 const props = defineProps({
   bookmark: {
