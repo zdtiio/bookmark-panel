@@ -111,7 +111,12 @@
         </template>
       </el-dialog>
 
-      <el-dialog title="设置" v-model="showSettings" width="600px">
+      <el-dialog 
+        title="设置" 
+        v-model="showSettings" 
+        :width="isMobile ? '90%' : '600px'"
+        :fullscreen="isMobile"
+      >
         <SettingsPanel @close="showSettings = false" />
       </el-dialog>
     </div>
@@ -163,6 +168,14 @@ const selectedBookmarkIds = ref([]);
 const editingFolder = ref(null);
 const editingBookmark = ref(null);
 const targetFolderId = ref(null);
+
+const isMobile = ref(window.innerWidth < 768);
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth < 768;
+};
+
+
 
 const filteredBookmarks = computed(() => {
   let result = bookmarks.value;
@@ -823,12 +836,17 @@ onMounted(() => {
   if (isLoggedIn.value) {
     loadUserData();
   }
+  window.addEventListener('resize', handleResize);
 });
 
 watch(isLoggedIn, (newVal) => {
   if (newVal) {
     loadUserData();
   }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
 });
 </script>
 

@@ -416,6 +416,9 @@ onMounted(() => {
 <style scoped>
 .settings-panel {
   padding: 20px;
+  height: 100%;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
 }
 
 .settings-footer {
@@ -492,5 +495,44 @@ onMounted(() => {
 
   .folder-select {
     width: 100%;
+  }
+
+  :deep(.el-tabs__header) {
+    margin: 0 0 16px 0;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px 8px 0 0;
+    padding: 0 8px;
+  }
+
+  :deep(.el-tabs__nav) {
+    border-bottom: none;
+  }
+
+  :deep(.el-tabs__item) {
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 8px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+  }
+
+  :deep(.el-tabs__item:hover) {
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  :deep(.el-tabs__item.is-active) {
+    color: #409eff;
+    background: rgba(64, 158, 255, 0.15);
+  }
+
+  :deep(.el-tabs__active-bar) {
+    display: none;
+  }
+
+  :deep(.el-tabs__content) {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 8px 8px;
+    padding: 16px;
   }
 </style>

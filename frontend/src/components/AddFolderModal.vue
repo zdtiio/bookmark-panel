@@ -2,6 +2,8 @@
   <el-dialog 
     :title="editingFolder ? '修改文件夹' : '添加文件夹'" 
     v-model="localVisible"
+    :width="isMobile ? '90%' : '500px'"
+    :fullscreen="isMobile"
     @close="handleClose"
   >
     <el-form :model="form">
@@ -50,8 +52,22 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { ElMessage, ElDialog, ElForm, ElFormItem, ElInput, ElTreeSelect, ElButton } from 'element-plus';
+
+const isMobile = ref(window.innerWidth < 768);
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth < 768;
+};
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
 
 const props = defineProps({
   visible: {
