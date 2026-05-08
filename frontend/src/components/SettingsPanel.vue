@@ -233,7 +233,7 @@ const defaultFolderTree = computed(() => {
       }));
   };
   const tree = buildTree(null);
-  return [{ id: null, label: '全部书签', children: tree }];
+  return tree;
 });
 
 const tokenForm = ref({
