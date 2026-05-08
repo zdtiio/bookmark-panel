@@ -43,23 +43,15 @@ export const useBookmarkStore = defineStore('bookmarks', () => {
   };
 
   const addBookmark = async (bookmark) => {
-    try {
-      const response = await bookmarkApi.createBookmark(bookmark);
-      bookmarks.value.unshift(response);
-    } catch (error) {
-      console.error('Failed to add bookmark:', error);
-    }
+    const response = await bookmarkApi.createBookmark(bookmark);
+    bookmarks.value.unshift(response);
   };
 
   const updateBookmark = async (id, data) => {
-    try {
-      const response = await bookmarkApi.updateBookmark(id, data);
-      const index = bookmarks.value.findIndex(b => b.id === id);
-      if (index !== -1) {
-        bookmarks.value[index] = response;
-      }
-    } catch (error) {
-      console.error('Failed to update bookmark:', error);
+    const response = await bookmarkApi.updateBookmark(id, data);
+    const index = bookmarks.value.findIndex(b => b.id === id);
+    if (index !== -1) {
+      bookmarks.value[index] = response;
     }
   };
 

@@ -23,7 +23,15 @@ const Bookmark = sequelize.define('Bookmark', {
     type: DataTypes.STRING(1024),
     allowNull: false,
     validate: {
-      isUrl: true
+      isUrl: {
+        args: true,
+        msg: 'url 不是有效的URL地址'
+      },
+      isValidUrl(value) {
+        if (!value.startsWith('http://') && !value.startsWith('https://')) {
+          throw new Error('url 必须以 http:// 或 https:// 开头');
+        }
+      }
     }
   },
   description: {

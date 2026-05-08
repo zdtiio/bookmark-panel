@@ -1,104 +1,102 @@
 const bookmarkService = require('../services/bookmarkService');
+const { successResponse, errorResponse } = require('../utils/response');
 
 const bookmarkController = {
-  async getAllBookmarks(req, res) {
+  async getAllBookmarks(req, res, next) {
     try {
       const bookmarks = await bookmarkService.getAllBookmarks(req.user.id);
-      res.json(bookmarks);
+      res.json(successResponse(bookmarks, '获取书签列表成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async searchBookmarks(req, res) {
+  async searchBookmarks(req, res, next) {
     try {
       const { q } = req.query;
       if (!q) {
-        return res.status(400).json({ message: 'Search query is required' });
+        return next(errorResponse('搜索关键词不能为空', 'VALIDATION_ERROR', 400));
       }
       const bookmarks = await bookmarkService.searchBookmarks(req.user.id, q);
-      res.json(bookmarks);
+      res.json(successResponse(bookmarks, '搜索成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async getBookmarkById(req, res) {
+  async getBookmarkById(req, res, next) {
     try {
       const bookmark = await bookmarkService.getBookmarkById(req.user.id, req.params.id);
       if (!bookmark) {
-        return res.status(404).json({ message: 'Bookmark not found' });
+        return next(errorResponse('书签不存在', 'NOT_FOUND', 404));
       }
-      res.json(bookmark);
+      res.json(successResponse(bookmark, '获取书签成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async createBookmark(req, res) {
+  async createBookmark(req, res, next) {
     try {
       const bookmark = await bookmarkService.createBookmark(req.user.id, req.body);
-      res.status(201).json(bookmark);
+      res.status(201).json(successResponse(bookmark, '添加书签成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async updateBookmark(req, res) {
+  async updateBookmark(req, res, next) {
     try {
       const bookmark = await bookmarkService.updateBookmark(req.user.id, req.params.id, req.body);
-      res.json(bookmark);
+      res.json(successResponse(bookmark, '更新书签成功'));
     } catch (error) {
-      res.status(404).json({ message: error.message });
+      error.statusCode = 404;
+      next(error);
     }
   },
 
-  async updateBookmarkFolder(req, res) {
+  async updateBookmarkFolder(req, res, next) {
     try {
       const { folderId } = req.body;
       const bookmark = await bookmarkService.updateBookmarkFolder(req.user.id, req.params.id, folderId);
-      res.json(bookmark);
+      res.json(successResponse(bookmark, '移动书签成功'));
     } catch (error) {
-      res.status(404).json({ message: error.message });
+      error.statusCode = 404;
+      next(error);
     }
   },
 
-  async batchUpdateBookmarkFolder(req, res) {
+  async batchUpdateBookmarkFolder(req, res, next) {
     try {
       const { ids, folderId } = req.body;
       await bookmarkService.batchUpdateBookmarkFolder(req.user.id, ids, folderId);
-      res.json({ message: 'Bookmarks moved successfully' });
+      res.json(successResponse(null, '批量移动书签成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async updateBookmarkOrder(req, res) {
+  async updateBookmarkOrder(req, res, next) {
     try {
       const { bookmarks } = req.body;
-      console.log('updateBookmarkOrder called with:', bookmarks?.length, 'bookmarks');
-      console.log('User ID:', req.user.id);
-      if (bookmarks && bookmarks.length > 0) {
-        console.log('First bookmark:', bookmarks[0]);
-      }
       await bookmarkService.updateBookmarkOrder(req.user.id, bookmarks);
-      res.json({ message: 'Bookmark order updated' });
+      res.json(successResponse(null, '更新书签顺序成功'));
     } catch (error) {
-      console.error('updateBookmarkOrder error:', error.message);
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async deleteBookmark(req, res) {
+  async deleteBookmark(req, res, next) {
     try {
       await bookmarkService.deleteBookmark(req.user.id, req.params.id);
-      res.json({ message: 'Bookmark deleted' });
+      res.json(successResponse(null, '删除书签成功'));
     } catch (error) {
-      res.status(404).json({ message: error.message });
+      error.statusCode = 404;
+      next(error);
     }
   },
 
-  async importBookmarks(req, res) {
+  async importBookmarks(req, res, next) {
     try {
       const { format, bookmarks, htmlContent, folderId } = req.body;
       let parsedBookmarks = bookmarks;
@@ -112,17 +110,16 @@ const bookmarkController = {
       }
 
       const result = await bookmarkService.importBookmarks(req.user.id, parsedBookmarks, folderId);
-      res.json({ 
-        message: `Imported ${result.bookmarks.length} bookmarks`, 
+      res.json(successResponse({ 
         count: result.bookmarks.length,
         foldersCreated: result.foldersCreated 
-      });
+      }, `成功导入 ${result.bookmarks.length} 个书签`));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async exportBookmarks(req, res) {
+  async exportBookmarks(req, res, next) {
     try {
       const format = req.query.format || 'html';
       const data = await bookmarkService.exportBookmarks(req.user.id, format);
@@ -136,7 +133,7 @@ const bookmarkController = {
       }
       res.send(data);
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 

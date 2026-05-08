@@ -34,6 +34,7 @@ const bookmarkRoutes = require('./routes/bookmarkRoutes');
 const folderRoutes = require('./routes/folderRoutes');
 const configRoutes = require('./routes/configRoutes');
 const tokenRoutes = require('./routes/tokenRoutes');
+const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 const cache = new NodeCache({ stdTTL: 600 });
@@ -48,6 +49,8 @@ app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/configs', configRoutes);
 app.use('/api/tokens', tokenRoutes);
+
+app.use(errorHandler);
 
 app.use(express.static(path.join(__dirname, '../dist')));
 

@@ -702,33 +702,40 @@ const deleteBookmark = async (bookmark) => {
   }
 };
 
-const saveBookmark = async (formData) => {
+const saveBookmark = async ({ resolve, reject, ...formData }) => {
   if (!formData.title || !formData.url) {
     ElMessage.error("请填写标题和URL");
+    reject && reject(new Error('请填写标题和URL'));
     return;
   }
 
-  if (formData.id) {
-    await bookmarkStore.updateBookmark(formData.id, formData);
-    ElMessage.success("更新成功");
-  } else {
-    const folderId = formData.folderId;
-    const folderBookmarks = bookmarks.value.filter(
-      (b) => b.folderId === folderId,
-    );
-    const maxSortOrder =
-      folderBookmarks.length > 0
-        ? Math.max(...folderBookmarks.map((b) => b.sortOrder || 0))
-        : 0;
-    await bookmarkStore.addBookmark({
-      ...formData,
-      folderId,
-      sortOrder: maxSortOrder + 1,
-    });
-    ElMessage.success("添加成功");
+  try {
+    if (formData.id) {
+      await bookmarkStore.updateBookmark(formData.id, formData);
+      ElMessage.success("更新成功");
+    } else {
+      const folderId = formData.folderId;
+      const folderBookmarks = bookmarks.value.filter(
+        (b) => b.folderId === folderId,
+      );
+      const maxSortOrder =
+        folderBookmarks.length > 0
+          ? Math.max(...folderBookmarks.map((b) => b.sortOrder || 0))
+          : 0;
+      await bookmarkStore.addBookmark({
+        ...formData,
+        folderId,
+        sortOrder: maxSortOrder + 1,
+      });
+      ElMessage.success("添加成功");
+    }
+    showAddBookmark.value = false;
+    editingBookmark.value = null;
+    resolve && resolve();
+  } catch (error) {
+    console.error('Save bookmark failed:', error);
+    reject && reject(error);
   }
-  showAddBookmark.value = false;
-  editingBookmark.value = null;
 };
 
 const saveFolder = async ({ name, parentId, editingFolder: folderToEdit }) => {

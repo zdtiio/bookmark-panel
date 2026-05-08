@@ -1,14 +1,15 @@
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
+const { successResponse, errorResponse } = require('../utils/response');
 
 const authController = {
-  async register(req, res) {
+  async register(req, res, next) {
     try {
       const { username, email, password } = req.body;
 
       const existingUser = await userService.findByEmail(email);
       if (existingUser) {
-        return res.status(400).json({ message: 'User already exists' });
+        return next(errorResponse('该邮箱已被注册', 'DUPLICATE_ERROR', 400));
       }
 
       const user = await userService.createUser(username, email, password);
@@ -16,54 +17,52 @@ const authController = {
         expiresIn: process.env.JWT_EXPIRES_IN
       });
 
-      res.status(201).json({
-        message: 'User created successfully',
+      res.status(201).json(successResponse({
         token,
         user: { id: user.id, username: user.username, email: user.email }
-      });
+      }, '注册成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async login(req, res) {
+  async login(req, res, next) {
     try {
       const { email, password } = req.body;
 
       const user = await userService.findByEmail(email);
       if (!user) {
-        return res.status(401).json({ message: 'Invalid credentials' });
+        return next(errorResponse('邮箱或密码错误', 'INVALID_CREDENTIALS', 401));
       }
 
       const isMatch = await user.comparePassword(password);
       if (!isMatch) {
-        return res.status(401).json({ message: 'Invalid credentials' });
+        return next(errorResponse('邮箱或密码错误', 'INVALID_CREDENTIALS', 401));
       }
 
       const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRES_IN
       });
 
-      res.json({
-        message: 'Login successful',
+      res.json(successResponse({
         token,
         user: { id: user.id, username: user.username, email: user.email }
-      });
+      }, '登录成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
   async logout(req, res) {
-    res.json({ message: 'Logout successful' });
+    res.json(successResponse(null, '登出成功'));
   },
 
-  async getMe(req, res) {
+  async getMe(req, res, next) {
     try {
       const user = await userService.findById(req.user.id);
-      res.json({ user: { id: user.id, username: user.username, email: user.email } });
+      res.json(successResponse({ user: { id: user.id, username: user.username, email: user.email } }, '获取用户信息成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   }
 };

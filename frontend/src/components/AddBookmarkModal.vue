@@ -59,8 +59,8 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="handleClose">取消</el-button>
-      <el-button type="primary" @click="handleSave">保存</el-button>
+      <el-button @click="handleClose" :disabled="isSaving">取消</el-button>
+      <el-button type="primary" @click="handleSave" :loading="isSaving">保存</el-button>
     </template>
   </el-dialog>
 </template>
@@ -159,6 +159,7 @@ watch(() => props.editingBookmark, (newVal) => {
 
 watch(() => localVisible.value, (newVal) => {
   if (!newVal) {
+    isSaving.value = false;
     emit('update:visible', false);
     if (!props.editingBookmark) {
       resetForm();
@@ -227,7 +228,9 @@ const handleClose = () => {
   localVisible.value = false;
 };
 
-const handleSave = () => {
+const isSaving = ref(false);
+
+const handleSave = async () => {
   if (!form.value.title) {
     ElMessage.error('请填写标题');
     return;
@@ -243,8 +246,16 @@ const handleSave = () => {
     return;
   }
   
-  emit('save', { ...form.value });
-  localVisible.value = false;
+  isSaving.value = true;
+  try {
+    await new Promise((resolve, reject) => {
+      emit('save', { ...form.value, resolve, reject });
+    });
+  } catch (error) {
+    console.error('Save failed:', error);
+  } finally {
+    isSaving.value = false;
+  }
 };
 </script>
 

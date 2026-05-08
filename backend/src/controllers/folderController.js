@@ -1,73 +1,77 @@
 const folderService = require('../services/folderService');
+const { successResponse, errorResponse } = require('../utils/response');
 
 const folderController = {
-  async getAllFolders(req, res) {
+  async getAllFolders(req, res, next) {
     try {
       const folders = await folderService.getAllFolders(req.user.id);
-      res.json(folders);
+      res.json(successResponse(folders, '获取文件夹列表成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async getFolderById(req, res) {
+  async getFolderById(req, res, next) {
     try {
       const folder = await folderService.getFolderById(req.user.id, req.params.id);
       if (!folder) {
-        return res.status(404).json({ message: 'Folder not found' });
+        return next(errorResponse('文件夹不存在', 'NOT_FOUND', 404));
       }
-      res.json(folder);
+      res.json(successResponse(folder, '获取文件夹成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async createFolder(req, res) {
+  async createFolder(req, res, next) {
     try {
       const { name, parentId, sortOrder } = req.body;
       const folder = await folderService.createFolder(req.user.id, name, parentId, sortOrder);
-      res.status(201).json(folder);
+      res.status(201).json(successResponse(folder, '创建文件夹成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async updateFolder(req, res) {
+  async updateFolder(req, res, next) {
     try {
       const { name } = req.body;
       const folder = await folderService.updateFolder(req.user.id, req.params.id, name);
-      res.json(folder);
+      res.json(successResponse(folder, '更新文件夹成功'));
     } catch (error) {
-      res.status(404).json({ message: error.message });
+      error.statusCode = 404;
+      next(error);
     }
   },
 
-  async updateFolderParent(req, res) {
+  async updateFolderParent(req, res, next) {
     try {
       const { parentId } = req.body;
       const folder = await folderService.updateFolderParent(req.user.id, req.params.id, parentId);
-      res.json(folder);
+      res.json(successResponse(folder, '移动文件夹成功'));
     } catch (error) {
-      res.status(404).json({ message: error.message });
+      error.statusCode = 404;
+      next(error);
     }
   },
 
-  async updateFolderOrder(req, res) {
+  async updateFolderOrder(req, res, next) {
     try {
       const { folders } = req.body;
       await folderService.updateFolderOrder(req.user.id, folders);
-      res.json({ message: 'Folder order updated' });
+      res.json(successResponse(null, '更新文件夹顺序成功'));
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      next(error);
     }
   },
 
-  async deleteFolder(req, res) {
+  async deleteFolder(req, res, next) {
     try {
       await folderService.deleteFolder(req.user.id, req.params.id);
-      res.json({ message: 'Folder deleted' });
+      res.json(successResponse(null, '删除文件夹成功'));
     } catch (error) {
-      res.status(404).json({ message: error.message });
+      error.statusCode = 404;
+      next(error);
     }
   }
 };
