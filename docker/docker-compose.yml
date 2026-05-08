@@ -1,6 +1,6 @@
 services:
   bookmark-panel:
-    image: ghcr.io/zdtiio/bookmark-panel:sha-85cb5f9
+    image: ghcr.io/zdtiio/bookmark-panel:sha-f6d1165
     container_name: bookmark-panel
     ports:
       - "3000:3000"
