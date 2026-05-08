@@ -47,7 +47,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/folders', folderRoutes);
-app.use('/api/configs', configRoutes);
+app.use('/api/config', configRoutes);
 app.use('/api/tokens', tokenRoutes);
 
 app.use(errorHandler);

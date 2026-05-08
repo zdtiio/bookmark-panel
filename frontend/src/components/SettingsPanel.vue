@@ -8,8 +8,8 @@
           </el-form-item>
           <el-form-item label="背景类型">
             <el-radio-group v-model="localConfig.backgroundType">
-              <el-radio label="color">纯色</el-radio>
-              <el-radio label="image">图片</el-radio>
+              <el-radio value="color">纯色</el-radio>
+              <el-radio value="image">图片</el-radio>
             </el-radio-group>
           </el-form-item>
           <el-form-item label="背景颜色" v-if="localConfig.backgroundType === 'color'">
@@ -26,14 +26,16 @@
           </el-form-item>
           <el-form-item label="默认文件夹">
             <el-tree-select
-              v-model="localConfig.defaultFolderId"
+              :model-value="String(localConfig.defaultFolderId || '')"
               :data="defaultFolderTree"
               :props="treeProps"
+              node-key="id"
               placeholder="请选择登录后默认显示的文件夹"
               :render-after-expand="false"
               :check-strictly="true"
               :expand-on-click-node="false"
               class="folder-select"
+              @update:model-value="(val) => localConfig.defaultFolderId = val ? Number(val) : null"
             >
               <template #empty>
                 <div style="padding: 12px; text-align: center; color: rgba(255,255,255,0.5);">
@@ -63,7 +65,10 @@
       </el-tab-pane>
 
       <el-tab-pane label="API Token" name="token">
-        <div v-if="tokens.length === 0" class="empty-token">
+        <div v-if="!tokensLoaded" class="empty-token">
+          <p>加载中...</p>
+        </div>
+        <div v-else-if="tokens.length === 0" class="empty-token">
           <p>暂无 API Token，请创建一个</p>
         </div>
         <div v-else class="token-list">
@@ -187,13 +192,14 @@ import { Plus } from 'lucide-vue-next';
 const authStore = useAuthStore();
 const configStore = useConfigStore();
 
-defineEmits(['close']);
+const emit = defineEmits(['close']);
 
 const activeTab = ref('appearance');
 const localConfig = ref({ ...configStore.config });
 const customSearchEngine = ref('');
 
 const tokens = ref([]);
+const tokensLoaded = ref(false);
 const showCreateToken = ref(false);
 const showNewToken = ref(false);
 const newTokenValue = ref('');
@@ -224,10 +230,10 @@ const folderTree = computed(() => {
 const defaultFolderTree = computed(() => {
   const buildTree = (parentId = null) => {
     return folders.value
-      .filter(f => f.parentId === parentId)
+      .filter(f => String(f.parentId) === String(parentId))
       .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
       .map(folder => ({
-        id: folder.id,
+        id: String(folder.id),
         label: folder.name,
         children: buildTree(folder.id)
       }));
@@ -236,15 +242,33 @@ const defaultFolderTree = computed(() => {
   return tree;
 });
 
+const selectedDefaultFolderPath = computed(() => {
+  const folderId = localConfig.value.defaultFolderId;
+  if (!folderId && folderId !== 0) return null;
+  const path = [];
+  let currentId = folderId;
+  while (currentId) {
+    const folder = folders.value.find(f => String(f.id) === String(currentId));
+    if (!folder) break;
+    path.unshift(folder.name);
+    currentId = folder.parentId;
+  }
+  return path.length > 0 ? path.join('/') : null;
+});
+
 const tokenForm = ref({
   name: ''
 });
 
 const loadTokens = async () => {
   try {
-    tokens.value = await tokenApi.getTokens();
+    const result = await tokenApi.getTokens();
+    tokens.value = Array.isArray(result) ? result : [];
   } catch (error) {
     console.error('Failed to load tokens:', error);
+    tokens.value = [];
+  } finally {
+    tokensLoaded.value = true;
   }
 };
 
@@ -392,6 +416,10 @@ const saveSettings = async () => {
   }
   await configStore.saveConfig(configToSave);
   ElMessage.success('设置已保存');
+  emit('close');
+  setTimeout(() => {
+    window.location.reload();
+  }, 300);
 };
 
 const formatDate = (dateString) => {
@@ -407,9 +435,15 @@ const loadFolders = async () => {
   }
 };
 
-onMounted(() => {
+const loadConfig = async () => {
+  await configStore.loadConfig();
+  localConfig.value = { ...configStore.config };
+};
+
+onMounted(async () => {
+  await loadFolders();
+  await loadConfig();
   loadTokens();
-  loadFolders();
 });
 </script>
 

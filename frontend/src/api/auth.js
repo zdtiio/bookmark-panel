@@ -1,4 +1,4 @@
-import createAxiosInstance from './config';
+import { createAxiosInstance } from './config';
 
 const axiosInstance = createAxiosInstance();
 

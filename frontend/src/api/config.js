@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { ElMessage } from 'element-plus';
 
-const createAxiosInstance = () => {
+export const createAxiosInstance = () => {
   const axiosInstance = axios.create({
     baseURL: '/api',
     headers: {
@@ -24,7 +24,7 @@ const createAxiosInstance = () => {
         ElMessage.error(data.message || '操作失败');
         throw new Error(data.message || '操作失败');
       }
-      return data.data;
+      return data.data !== undefined ? data.data : data;
     },
     error => {
       if (error.response) {
@@ -74,4 +74,14 @@ const createAxiosInstance = () => {
   return axiosInstance;
 };
 
-export default createAxiosInstance;
+const axiosInstance = createAxiosInstance();
+
+export default {
+  getConfig: async () => {
+    return await axiosInstance.get('/config');
+  },
+  
+  updateConfig: async (configData) => {
+    return await axiosInstance.put('/config', configData);
+  }
+};
