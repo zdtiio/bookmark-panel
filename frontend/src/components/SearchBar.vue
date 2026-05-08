@@ -38,40 +38,49 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, watch } from 'vue';
+<script setup>import { ref, computed, watch } from 'vue';
 import { Search } from 'lucide-vue-next';
-
+import { useConfigStore } from '../stores/config';
 const props = defineProps({
-  placeholder: {
-    type: String,
-    default: '请输入搜索内容'
-  },
-  isLoggedIn: {
-    type: Boolean,
-    default: false
-  }
+ placeholder: {
+ type: String,
+ default: '请输入搜索内容'
+ },
+ isLoggedIn: {
+ type: Boolean,
+ default: false
+ }
 });
-
 const emit = defineEmits(['search', 'clear', 'web-search']);
-
+const configStore = useConfigStore();
 const searchQuery = ref('');
 const guestSearchEngine = ref('baidu');
 const showEngineDropdown = ref(false);
-
 const searchEngines = {
-  google: 'https://www.google.com/search?q=',
-  baidu: 'https://www.baidu.com/s?wd=',
-  bing: 'https://www.bing.com/search?q='
+ google: 'https://www.google.com/search?q=',
+ baidu: 'https://www.baidu.com/s?wd=',
+ bing: 'https://www.bing.com/search?q='
 };
-
 const engineNames = {
-  google: 'Google',
-  baidu: '百度',
-  bing: '必应'
+ google: 'Google',
+ baidu: '百度',
+ bing: '必应'
 };
-
 const engineList = ['baidu', 'google', 'bing'];
+const urlToEngineMap = {
+ 'https://www.google.com/search?q=': 'google',
+ 'https://www.baidu.com/s?wd=': 'baidu',
+ 'https://www.bing.com/search?q=': 'bing'
+};
+watch(() => props.isLoggedIn, (isLoggedIn) => {
+ if (isLoggedIn) {
+ const configuredEngineUrl = configStore.config.searchEngine;
+ const engineName = urlToEngineMap[configuredEngineUrl];
+ if (engineName) {
+ guestSearchEngine.value = engineName;
+ }
+ }
+}, { immediate: true });
 
 const selectedLabel = computed(() => {
   const labels = { google: 'G', baidu: 'B', bing: 'Bi' };
