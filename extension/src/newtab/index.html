@@ -6,9 +6,9 @@
   <title>新标签页</title>
   <style>
     body {
+      display: none;
       margin: 0;
       min-height: 100vh;
-      display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -69,7 +69,63 @@
       background: rgba(255, 255, 255, 0.2);
       transform: translateY(-2px);
     }
+    * {
+      display: none !important;
+    }
+    body, body > * {
+      display: flex !important;
+    }
+    body {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .time-display, .search-container, .quick-actions {
+      display: block !important;
+    }
+    .time-display {
+      text-align: center;
+    }
+    .quick-actions {
+      display: flex !important;
+      gap: 16px;
+    }
+    .search-input {
+      display: block !important;
+      width: 100%;
+    }
   </style>
+  <script>
+    (async function() {
+      const config = await chrome.storage.local.get(['apiUrl', 'apiToken']);
+      if (config.apiToken && config.apiUrl) {
+        window.location.href = config.apiUrl;
+        return;
+      }
+      document.body.style.display = 'flex';
+      removeChromeElements();
+    })();
+
+    function removeChromeElements() {
+      setTimeout(() => {
+        const elements = document.querySelectorAll('*');
+        elements.forEach(el => {
+          const ariaLabel = el.getAttribute('aria-label');
+          const className = el.className;
+          const id = el.id;
+          if (
+            ariaLabel && (ariaLabel.includes('自定义') || ariaLabel.includes('书签') || ariaLabel.includes('插件')) ||
+            className && (className.includes('customize') || className.includes('chrome') || className.includes('extension')) ||
+            id && (id.includes('customize') || id.includes('chrome')) ||
+            el.textContent && (el.textContent.includes('自定义') || el.textContent.includes('书签管理面板'))
+          ) {
+            el.style.display = 'none';
+            el.style.visibility = 'hidden';
+          }
+        });
+      }, 100);
+    }
+  </script>
 </head>
 <body>
   <div class="time-display">

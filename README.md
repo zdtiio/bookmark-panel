@@ -131,6 +131,40 @@ npm install
 npm run dev
 ```
 
+#### 开发浏览器插件
+
+```bash
+cd extension
+npm install
+npm run dev
+```
+
+**开发命令：**
+
+| 命令 | 说明 |
+|------|------|
+| `npm run dev` | 开发模式（热更新） |
+| `npm run build` | 通用构建 |
+| `npm run build:chrome` | Chrome 专属构建 |
+| `npm run build:firefox` | Firefox 专属构建 |
+| `npm run build:edge` | Edge 专属构建 |
+
+**调试安装：**
+
+- **Chrome / Edge**: 打开扩展页面 (`chrome://extensions/` 或 `edge://extensions/`)，开启「开发者模式」，点击「加载已解压的扩展程序」，选择 `extension/dist` 目录
+- **Firefox**: 打开附加组件页面 (`about:addons`)，设置 → 调试附加组件，点击「临时加载附加组件」，选择扩展目录
+
+**插件结构说明：**
+
+```
+extension/src/
+├── background/     # 后台脚本（快捷键监听、事件处理）
+├── popup/          # 点击插件图标弹出的窗口
+├── options/        # 插件设置页面
+├── newtab/         # 新标签页替换页面
+└── manifest.json   # 插件配置文件（核心）
+```
+
 ### Docker 部署
 
 #### 使用 docker-compose（推荐）

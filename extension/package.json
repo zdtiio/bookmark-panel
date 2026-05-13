@@ -10,12 +10,13 @@
     "build:edge": "vite build --mode edge"
   },
   "dependencies": {
-    "vue": "^3.4.21",
+    "axios": "^1.6.8",
     "lucide-vue-next": "^0.39.0",
-    "axios": "^1.6.8"
+    "vue": "^3.4.21"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
-    "vite": "^5.2.8"
+    "vite": "^5.2.8",
+    "vite-plugin-static-copy": "^3.4.0"
   }
 }

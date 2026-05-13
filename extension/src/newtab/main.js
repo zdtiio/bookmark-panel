@@ -1,4 +1,11 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  const config = await chrome.storage.local.get(['apiUrl', 'apiToken']);
+  
+  if (config.apiToken && config.apiUrl) {
+    window.location.href = config.apiUrl;
+    return;
+  }
+
   const timeDiv = document.getElementById('time');
   const dateDiv = document.getElementById('date');
   const searchInput = document.getElementById('searchInput');
