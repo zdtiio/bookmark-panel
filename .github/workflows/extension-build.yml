@@ -37,17 +37,14 @@ jobs:
         run: npm run build
 
       - name: Archive extension
-        uses: thedoctor0/zip-release@0.7.5
-        with:
-          type: 'zip'
-          filename: 'bookmark-panel-extension.zip'
-          directory: 'extension/dist'
+        working-directory: ./extension/dist
+        run: zip -r ../../bookmark-panel-extension.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: chrome-extension
-          path: bookmark-panel-extension.zip
+          path: ./bookmark-panel-extension.zip
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
