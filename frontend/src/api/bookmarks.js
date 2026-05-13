@@ -7,6 +7,10 @@ const bookmarkApi = {
     return axiosInstance.get('/bookmarks');
   },
 
+  getBookmarksByFolder: async (folderId) => {
+    return axiosInstance.get(`/bookmarks/folder/${folderId}`);
+  },
+
   searchBookmarks: async (query) => {
     return axiosInstance.get(`/bookmarks/search?q=${encodeURIComponent(query)}`);
   },

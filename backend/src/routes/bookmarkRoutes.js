@@ -6,6 +6,7 @@ const authMiddleware = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/', authMiddleware, bookmarkController.getAllBookmarks);
+router.get('/folder/:folderId', authMiddleware, bookmarkController.getBookmarksByFolder);
 router.get('/search', authMiddleware, bookmarkController.searchBookmarks);
 router.post('/', authMiddleware, bookmarkController.createBookmark);
 router.put('/order', authMiddleware, bookmarkController.updateBookmarkOrder);

@@ -11,6 +11,16 @@ const bookmarkController = {
     }
   },
 
+  async getBookmarksByFolder(req, res, next) {
+    try {
+      const { folderId } = req.params;
+      const bookmarks = await bookmarkService.getBookmarksByFolder(req.user.id, folderId);
+      res.json(successResponse(bookmarks, '获取书签列表成功'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async searchBookmarks(req, res, next) {
     try {
       const { q } = req.query;

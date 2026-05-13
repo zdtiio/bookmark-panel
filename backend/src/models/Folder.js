@@ -28,6 +28,17 @@ const Folder = sequelize.define('Folder', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
+}, {
+  indexes: [
+    {
+      name: 'idx_folder_user_parent',
+      fields: ['userId', 'parentId']
+    },
+    {
+      name: 'idx_folder_user_sort',
+      fields: ['userId', 'sortOrder']
+    }
+  ]
 });
 
 module.exports = Folder;

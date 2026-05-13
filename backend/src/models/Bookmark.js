@@ -55,6 +55,17 @@ const Bookmark = sequelize.define('Bookmark', {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
   }
+}, {
+  indexes: [
+    {
+      name: 'idx_bookmark_user_folder',
+      fields: ['userId', 'folderId']
+    },
+    {
+      name: 'idx_bookmark_user_sort',
+      fields: ['userId', 'sortOrder']
+    }
+  ]
 });
 
 module.exports = Bookmark;

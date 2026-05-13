@@ -282,10 +282,12 @@ const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value;
 };
 
-const selectFolder = (folderOrId) => {
+const selectFolder = async (folderOrId) => {
   const folderId = typeof folderOrId === "object" ? folderOrId.id : folderOrId;
   selectedFolderId.value = folderId;
   localStorage.setItem("selectedFolderId", folderId);
+  
+  await bookmarkStore.loadBookmarksByFolder(folderId);
 };
 
 const toggleFolderExpand = (folderId) => {
@@ -765,78 +767,49 @@ const saveFolder = async ({ name, parentId, editingFolder: folderToEdit }) => {
 };
 
 const loadUserData = async () => {
-  await bookmarkStore.loadBookmarks();
-  await bookmarkStore.loadFolders();
   await configStore.loadConfig();
+  
+  await bookmarkStore.loadFolders();
 
   await nextTick(() => {
-    const savedFolderId = localStorage.getItem("selectedFolderId");
-    if (savedFolderId) {
-      const savedFolderExists = folders.value.some(
-        (f) => String(f.id) === String(savedFolderId),
-      );
-      if (savedFolderExists) {
-        selectedFolderId.value = savedFolderId;
+    let targetFolderId = localStorage.getItem("selectedFolderId");
 
-        const parentIds = [];
-        let currentId = savedFolderId;
-        while (currentId) {
-          const folder = folders.value.find(
-            (f) => String(f.id) === String(currentId),
-          );
-          if (!folder) break;
-          if (folder.parentId) {
-            parentIds.unshift(folder.parentId);
-          }
-          currentId = folder.parentId;
-        }
-
-        parentIds.forEach((parentId) => {
-          if (!expandedFolders.value.includes(parentId)) {
-            expandedFolders.value.push(parentId);
-          }
-        });
-
-        return;
-      }
+    if (!targetFolderId) {
+      targetFolderId = configStore.config.defaultFolderId;
     }
 
-    const defaultFolderId = configStore.config.defaultFolderId;
-    if (defaultFolderId !== null && defaultFolderId !== undefined) {
-      const defaultFolderExists = folders.value.some(
-        (f) => String(f.id) === String(defaultFolderId),
-      );
-      if (defaultFolderExists) {
-        selectedFolderId.value = defaultFolderId;
-
-        const parentIds = [];
-        let currentId = defaultFolderId;
-        while (currentId) {
-          const folder = folders.value.find(
-            (f) => String(f.id) === String(currentId),
-          );
-          if (!folder) break;
-          if (folder.parentId) {
-            parentIds.unshift(folder.parentId);
-          }
-          currentId = folder.parentId;
-        }
-
-        parentIds.forEach((parentId) => {
-          if (!expandedFolders.value.includes(parentId)) {
-            expandedFolders.value.push(parentId);
-          }
-        });
-
-        return;
-      }
+    if (!targetFolderId) {
+      const rootFolder = folders.value.find((f) => !f.parentId);
+      targetFolderId = rootFolder?.id;
     }
 
-    const rootFolder = folders.value.find((f) => !f.parentId);
-    if (rootFolder) {
-      selectedFolderId.value = rootFolder.id;
+    selectedFolderId.value = targetFolderId;
+
+    if (targetFolderId) {
+      const parentIds = [];
+      let currentId = targetFolderId;
+      while (currentId) {
+        const folder = folders.value.find(
+          (f) => String(f.id) === String(currentId),
+        );
+        if (!folder) break;
+        if (folder.parentId) {
+          parentIds.unshift(folder.parentId);
+        }
+        currentId = folder.parentId;
+      }
+
+      parentIds.forEach((parentId) => {
+        if (!expandedFolders.value.includes(parentId)) {
+          expandedFolders.value.push(parentId);
+        }
+      });
     }
   });
+
+  if (selectedFolderId.value) {
+    await bookmarkStore.loadBookmarksByFolder(selectedFolderId.value);
+  }
 };
 
 onMounted(() => {

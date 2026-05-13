@@ -16,6 +16,14 @@ export const useBookmarkStore = defineStore('bookmarks', () => {
     }
   };
 
+  const loadBookmarksByFolder = async (folderId) => {
+    try {
+      bookmarks.value = await bookmarkApi.getBookmarksByFolder(folderId);
+    } catch (error) {
+      console.error('Failed to load bookmarks by folder:', error);
+    }
+  };
+
   const searchBookmarks = async (query) => {
     try {
       isSearching.value = true;
@@ -151,6 +159,7 @@ export const useBookmarkStore = defineStore('bookmarks', () => {
     searchResults,
     isSearching,
     loadBookmarks,
+    loadBookmarksByFolder,
     loadFolders,
     searchBookmarks,
     clearSearch,
