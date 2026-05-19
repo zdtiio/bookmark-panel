@@ -19,7 +19,7 @@
         </div>
       </div>
       <button 
-        v-if="!isSearchResult && selectedFolderId !== null && bookmarks.length > 0"
+        v-if="bookmarks.length > 0"
         @click="$emit('toggle-edit')"
         class="edit-mode-btn"
         :class="{ 'active': isEditMode }"
@@ -80,20 +80,21 @@
           :index="index"
           :is-edit-mode="isEditMode"
           :show-icons="showIcons"
-          :dragging-id="draggingId"
-          :drop-target-index="dropTargetIndex"
+          :dragging-id="isSearchResult ? null : draggingId"
+          :drop-target-index="isSearchResult ? -1 : dropTargetIndex"
           :is-selected="selectedIds.includes(bookmark.id)"
+          :is-search-result="isSearchResult"
           @click="$emit('open-bookmark', bookmark)"
           @edit="$emit('edit-bookmark', bookmark)"
           @delete="$emit('delete-bookmark', bookmark)"
           @select="$emit('select-bookmark', $event)"
-          @dragstart="$emit('bookmark-dragstart', $event, bookmark)"
-          @dragend="$emit('bookmark-dragend')"
-          @dragover="$emit('bookmark-dragover', $event, index)"
-          @drop="$emit('bookmark-drop', $event)"
-          @touchstart="$emit('bookmark-touchstart', $event, bookmark, index)"
-          @touchmove="$emit('bookmark-touchmove', $event, index)"
-          @touchend="$emit('bookmark-touchend', $event)"
+          @dragstart="!isSearchResult && $emit('bookmark-dragstart', $event, bookmark)"
+          @dragend="!isSearchResult && $emit('bookmark-dragend')"
+          @dragover="!isSearchResult && $emit('bookmark-dragover', $event, index)"
+          @drop="!isSearchResult && $emit('bookmark-drop', $event)"
+          @touchstart="!isSearchResult && $emit('bookmark-touchstart', $event, bookmark, index)"
+          @touchmove="!isSearchResult && $emit('bookmark-touchmove', $event, index)"
+          @touchend="!isSearchResult && $emit('bookmark-touchend', $event)"
         />
       </div>
     </div>

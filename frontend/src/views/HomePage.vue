@@ -400,7 +400,9 @@ const handleFolderDrop = async (dropData) => {
 const toggleEditMode = () => {
   isEditMode.value = !isEditMode.value;
   if (!isEditMode.value) {
-    saveBookmarkOrder();
+    if (!currentSearchQuery.value) {
+      saveBookmarkOrder();
+    }
     selectedBookmarkIds.value = [];
   }
 };

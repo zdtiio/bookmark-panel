@@ -6,10 +6,11 @@
       'drop-before': dropTargetIndex === index && draggingId !== bookmark.id,
       'drop-after': dropTargetIndex === index + 1 && draggingId !== bookmark.id,
       'edit-mode': isEditMode,
-      'selected': isSelected
+      'selected': isSelected,
+      'search-result': isSearchResult
     }"
     @click="handleClick"
-    :draggable="isEditMode"
+    :draggable="isEditMode && !isSearchResult"
     @dragstart="handleDragStart($event, bookmark)"
     @dragend="$emit('dragend')"
     @dragover.prevent="$emit('dragover', $event, index)"
@@ -18,7 +19,7 @@
     @touchmove.prevent="$emit('touchmove', $event, index)"
     @touchend="$emit('touchend', $event)"
   >
-    <div v-if="isEditMode" class="drag-handle">
+    <div v-if="isEditMode && !isSearchResult" class="drag-handle">
       <GripVertical />
     </div>
     <div v-if="isEditMode" class="checkbox-wrapper" @click.stop="handleSelect">
@@ -89,6 +90,10 @@ const props = defineProps({
     default: -1
   },
   isSelected: {
+    type: Boolean,
+    default: false
+  },
+  isSearchResult: {
     type: Boolean,
     default: false
   }
