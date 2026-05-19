@@ -25,24 +25,22 @@ const views = {
  RegisterPage
 };
 
-const cachedSiteName = localStorage.getItem('siteName');
-if (cachedSiteName) {
- document.title = cachedSiteName;
-}
-
 const handleViewChange = (view) => {
- currentView.value = view;
+  currentView.value = view;
 };
 
 onMounted(() => {
- authStore.checkAuth();
- if (authStore.isAuthenticated()) {
- configStore.loadConfig().then(() => {
- const title = configStore.config?.siteName || 'Bookmark-Panel';
- document.title = title;
- localStorage.setItem('siteName', title);
- });
- }
+  authStore.checkAuth();
+  if (authStore.isAuthenticated()) {
+    configStore.initFromLocalStorage();
+    const cachedTitle = configStore.config?.siteName || 'Bookmark-Panel';
+    document.title = cachedTitle;
+    
+    configStore.loadConfig().then(() => {
+      const title = configStore.config?.siteName || 'Bookmark-Panel';
+      document.title = title;
+    });
+  }
 });
 
 defineExpose({ handleViewChange });

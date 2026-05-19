@@ -73,14 +73,23 @@ const urlToEngineMap = {
  'https://www.bing.com/search?q=': 'bing'
 };
 watch(() => props.isLoggedIn, (isLoggedIn) => {
- if (isLoggedIn) {
- const configuredEngineUrl = configStore.config.searchEngine;
- const engineName = urlToEngineMap[configuredEngineUrl];
- if (engineName) {
- guestSearchEngine.value = engineName;
- }
- }
+  if (isLoggedIn) {
+    const configuredEngineUrl = configStore.config.searchEngine;
+    const engineName = urlToEngineMap[configuredEngineUrl];
+    if (engineName) {
+      guestSearchEngine.value = engineName;
+    }
+  }
 }, { immediate: true });
+
+watch(() => configStore.config.searchEngine, (newEngineUrl) => {
+  if (props.isLoggedIn) {
+    const engineName = urlToEngineMap[newEngineUrl];
+    if (engineName) {
+      guestSearchEngine.value = engineName;
+    }
+  }
+});
 
 const selectedLabel = computed(() => {
   const labels = { google: 'G', baidu: 'B', bing: 'Bi' };
