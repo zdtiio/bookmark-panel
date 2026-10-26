@@ -6,7 +6,7 @@
       <UserHeader
         :active-view="activeView"
         @switch-view="switchView"
-        @add-bookmark="showAddBookmark = true"
+        @add-bookmark="openAddBookmark"
         @settings="showSettings = true"
         @logout="handleLogout"
         @search="handleSearch"
@@ -109,6 +109,7 @@
         v-model:visible="showAddBookmark"
         :folders="folders"
         :editing-bookmark="editingBookmark"
+        :default-folder-id="selectedFolderId"
         @save="saveBookmark"
       />
 
@@ -116,6 +117,7 @@
         v-model:visible="showAddFolder"
         :folders="folders"
         :editing-folder="editingFolder"
+        :default-parent-id="selectedFolderId"
         @save="saveFolder"
       />
 
@@ -951,6 +953,11 @@ const openBookmark = (bookmark) => {
   }
 };
 
+const openAddBookmark = () => {
+  editingBookmark.value = null;
+  showAddBookmark.value = true;
+};
+
 const editBookmark = (bookmark) => {
   editingBookmark.value = bookmark;
   showAddBookmark.value = true;
@@ -1033,6 +1040,12 @@ const saveFolder = async ({ name, parentId, editingFolder: folderToEdit }) => {
         ? Math.max(...siblingFolders.map((f) => f.sortOrder || 0))
         : 0;
     await bookmarkStore.addFolder(name, maxSortOrder + 1, pId);
+    if (pId !== null && pId !== undefined) {
+      revealFolderInTree(pId);
+      if (!expandedFolders.value.includes(pId)) {
+        expandedFolders.value.push(pId);
+      }
+    }
     ElMessage.success("添加成功");
   }
   showAddFolder.value = false;

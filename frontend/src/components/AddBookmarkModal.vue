@@ -95,6 +95,10 @@ const props = defineProps({
   editingBookmark: {
     type: Object,
     default: null
+  },
+  defaultFolderId: {
+    type: [Number, String],
+    default: null
   }
 });
 
@@ -105,6 +109,9 @@ const isFetchingTitle = ref(false);
 
 watch(() => props.visible, (newVal) => {
   localVisible.value = newVal;
+  if (newVal && !props.editingBookmark) {
+    resetForm();
+  }
 });
 
 const form = ref({
@@ -139,8 +146,17 @@ const resetForm = () => {
     title: '',
     url: '',
     description: '',
-    folderId: null
+    folderId: resolveDefaultFolderId()
   };
+};
+
+const resolveDefaultFolderId = () => {
+  const folderId = props.defaultFolderId;
+  if (folderId === null || folderId === undefined || folderId === '') {
+    return null;
+  }
+  const folder = props.folders.find((item) => String(item.id) === String(folderId));
+  return folder ? folder.id : null;
 };
 
 watch(() => props.editingBookmark, (newVal) => {

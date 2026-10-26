@@ -81,6 +81,10 @@ const props = defineProps({
   editingFolder: {
     type: Object,
     default: null
+  },
+  defaultParentId: {
+    type: [Number, String],
+    default: null
   }
 });
 
@@ -90,6 +94,9 @@ const localVisible = ref(false);
 
 watch(() => props.visible, (newVal) => {
   localVisible.value = newVal;
+  if (newVal && !props.editingFolder) {
+    resetForm();
+  }
 });
 
 const form = ref({
@@ -148,8 +155,17 @@ const selectedParentFolderPath = computed(() => {
 const resetForm = () => {
   form.value = {
     name: '',
-    parentId: null
+    parentId: resolveDefaultParentId()
   };
+};
+
+const resolveDefaultParentId = () => {
+  const parentId = props.defaultParentId;
+  if (parentId === null || parentId === undefined || parentId === '') {
+    return null;
+  }
+  const folder = props.folders.find((item) => String(item.id) === String(parentId));
+  return folder ? folder.id : null;
 };
 
 watch(() => props.editingFolder, (newVal) => {

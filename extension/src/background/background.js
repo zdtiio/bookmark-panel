@@ -20,13 +20,23 @@ const getErrorMessage = async (response) => {
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'save-bookmark') {
-    await saveCurrentPage();
+    await openAddBookmarkPage();
   }
 });
 
 chrome.action.onClicked.addListener(async () => {
-  await saveCurrentPage();
+  await openAddBookmarkPage();
 });
+
+const openAddBookmarkPage = async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const params = new URLSearchParams();
+  if (tab?.title) params.set('title', tab.title);
+  if (tab?.url) params.set('url', tab.url);
+  const query = params.toString();
+  const popupUrl = chrome.runtime.getURL('src/popup/index.html');
+  chrome.tabs.create({ url: query ? `${popupUrl}?${query}` : popupUrl });
+};
 
 const saveCurrentPage = async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

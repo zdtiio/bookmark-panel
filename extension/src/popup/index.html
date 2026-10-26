@@ -6,19 +6,65 @@
   <title>书签面板插件</title>
   <style>
     body {
-      width: 320px;
+      width: 340px;
       padding: 16px;
+      margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-sizing: border-box;
+    }
+    * {
+      box-sizing: border-box;
     }
     .header {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     .header h2 {
       margin: 0;
       font-size: 16px;
+    }
+    .field {
+      margin-bottom: 10px;
+    }
+    .field label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 12px;
+      color: #606266;
+    }
+    .required {
+      color: #f56c6c;
+    }
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #dcdfe6;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #303133;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      border-color: #409eff;
+    }
+    .field textarea {
+      resize: vertical;
+      min-height: 54px;
+    }
+    .field select:disabled,
+    .field input:disabled,
+    .field textarea:disabled {
+      background: #f5f7fa;
+      color: #a8abb2;
     }
     .btn {
       width: 100%;
@@ -29,6 +75,10 @@
       font-size: 14px;
       margin-bottom: 8px;
     }
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
     .btn-primary {
       background: #409eff;
       color: white;
@@ -37,37 +87,73 @@
       background: #f5f5f5;
       color: #666;
     }
-    .btn:hover {
-      opacity: 0.8;
+    .btn:hover:not(:disabled) {
+      opacity: 0.85;
+    }
+    .divider {
+      height: 1px;
+      margin: 12px 0;
+      background: #ebeef5;
     }
     .status {
-      margin-top: 12px;
+      margin-top: 4px;
+      margin-bottom: 8px;
       padding: 8px;
       border-radius: 4px;
       font-size: 12px;
       text-align: center;
+      display: none;
     }
     .status.success {
       background: #e8f5e9;
       color: #2e7d32;
+      display: block;
     }
     .status.error {
       background: #ffebee;
       color: #c62828;
+      display: block;
+    }
+    .status.info {
+      background: #e3f2fd;
+      color: #1565c0;
+      display: block;
     }
   </style>
 </head>
 <body>
   <div class="header">
     <div style="width: 24px; height: 24px; background: #409eff; border-radius: 4px;"></div>
-    <h2>书签面板</h2>
+    <h2>添加书签</h2>
   </div>
-  
-  <button class="btn btn-primary" id="saveBtn">保存当前页面</button>
+
+  <form id="addForm">
+    <div class="field">
+      <label for="title">标题 <span class="required">*</span></label>
+      <input type="text" id="title" placeholder="请输入标题" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="url">URL <span class="required">*</span></label>
+      <input type="text" id="url" placeholder="请输入网址" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="description">描述</label>
+      <textarea id="description" rows="2" placeholder="请输入描述"></textarea>
+    </div>
+    <div class="field">
+      <label for="folderId">文件夹</label>
+      <select id="folderId">
+        <option value="">根目录</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="saveBtn">添加书签</button>
+    <div id="status"></div>
+  </form>
+
+  <div class="divider"></div>
   <button class="btn btn-secondary" id="openPanelBtn">打开书签面板</button>
   <button class="btn btn-secondary" id="optionsBtn">设置</button>
-  
-  <div id="status"></div>
 
   <script type="module" src="main.js"></script>
 </body>
