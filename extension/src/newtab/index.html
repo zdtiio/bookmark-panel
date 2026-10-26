@@ -96,14 +96,25 @@
     }
   </style>
   <script>
-    (async function() {
-      const config = await chrome.storage.local.get(['apiUrl', 'apiToken']);
-      if (config.apiToken && config.apiUrl) {
-        window.location.href = config.apiUrl;
-        return;
-      }
-      document.body.style.display = 'flex';
-      removeChromeElements();
+    (function() {
+      const buildPanelUrl = (apiUrl, apiToken) => {
+        try {
+          const url = new URL(apiUrl);
+          url.hash = `apiToken=${encodeURIComponent(apiToken)}`;
+          return url.toString();
+        } catch (error) {
+          return apiUrl;
+        }
+      };
+
+      chrome.storage.local.get(['apiUrl', 'apiToken']).then((config) => {
+        if (config.apiToken && config.apiUrl) {
+          window.location.replace(buildPanelUrl(config.apiUrl, config.apiToken));
+          return;
+        }
+        document.body.style.display = 'flex';
+        removeChromeElements();
+      });
     })();
 
     function removeChromeElements() {

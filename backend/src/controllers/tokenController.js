@@ -19,12 +19,12 @@ const tokenController = {
   async createToken(req, res) {
     try {
       const { name } = req.body;
-      const result = await apiTokenService.createToken(req.user.id, name);
+      const { token, record } = await apiTokenService.createToken(req.user.id, name);
       res.status(201).json({
-        id: result.id,
-        name: result.name,
-        token: result.token,
-        createdAt: result.createdAt
+        id: record.id,
+        name: record.name,
+        token,
+        createdAt: record.createdAt
       });
     } catch (error) {
       res.status(500).json({ message: error.message });
@@ -57,7 +57,7 @@ const tokenController = {
   async verifyToken(req, res) {
     try {
       const { token } = req.body;
-      const result = await apiTokenService.verifyToken(req.user.id, token);
+      const result = await apiTokenService.verifyToken(token, req.user.id);
       if (result) {
         res.json({ valid: true });
       } else {

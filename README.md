@@ -238,6 +238,13 @@ docker run -p 3000:3000 -v $(pwd)/database:/app/database bookmark-panel
 | PUT    | `/api/tokens/:id/rotate` | 轮转 Token        |
 | POST   | `/api/tokens/verify`     | 验证 Token 有效性 |
 
+所有需要登录的接口同时支持两种认证方式：
+
+- `Authorization: Bearer <JWT>`：网页登录后使用
+- `X-API-Token: <API Token>`：浏览器插件等第三方客户端使用
+
+`POST /api/auth/token-login` 可以用 API Token 直接换取 JWT，浏览器插件通过该接口实现免密进入面板。
+
 ## 🌐 浏览器插件安装
 
 ### Chrome / Edge
@@ -273,9 +280,11 @@ UPLOAD_PATH=./uploads
 ### 插件配置
 
 - **API URL**: 后端服务地址（如 `http://localhost:3000`）
-- **API Token**: 用户的 API Token（从前端设置页面获取）
+- **API Token**: 用户的 API Token（从前端设置页面获取，可在插件设置页点击「测试连接」验证）
 - **取代主页**: 是否将插件设置为浏览器主页
 - **取代新标签页**: 是否将插件设置为新标签页
+
+配置好 API URL 和 API Token 后，新标签页 / 插件中的「打开书签面板」会自动携带 Token 登录，无需再输入账号密码。
 
 ## 🔒 安全特性
 

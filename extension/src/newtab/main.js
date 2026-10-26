@@ -1,8 +1,34 @@
+const normalizeApiUrl = (apiUrl) => (apiUrl || '').trim().replace(/\/+$/, '');
+
+const buildPanelUrl = (apiUrl, apiToken) => {
+  const baseUrl = normalizeApiUrl(apiUrl);
+  if (!apiToken) return baseUrl;
+
+  try {
+    const url = new URL(baseUrl);
+    url.hash = `apiToken=${encodeURIComponent(apiToken)}`;
+    return url.toString();
+  } catch (error) {
+    return baseUrl;
+  }
+};
+
+const getConfig = () => chrome.storage.local.get(['apiUrl', 'apiToken']);
+
+const getErrorMessage = async (response) => {
+  try {
+    const data = await response.json();
+    return data.message || data.error || '';
+  } catch (error) {
+    return '';
+  }
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const config = await chrome.storage.local.get(['apiUrl', 'apiToken']);
-  
+  const config = await getConfig();
+
   if (config.apiToken && config.apiUrl) {
-    window.location.href = config.apiUrl;
+    window.location.replace(buildPanelUrl(config.apiUrl, config.apiToken));
     return;
   }
 
@@ -16,11 +42,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const updateTime = () => {
     const now = new Date();
     timeDiv.textContent = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    dateDiv.textContent = now.toLocaleDateString('zh-CN', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric', 
-      weekday: 'long' 
+    dateDiv.textContent = now.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long'
     });
   };
 
@@ -38,18 +64,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.url) return;
 
-    const config = await chrome.storage.local.get(['apiUrl', 'apiToken']);
-    if (!config.apiUrl || !config.apiToken) {
+    const currentConfig = await getConfig();
+    if (!currentConfig.apiUrl || !currentConfig.apiToken) {
       alert('请先配置 API URL 和 Token');
       return;
     }
 
     try {
-      const response = await fetch(`${config.apiUrl}/api/bookmarks`, {
+      const response = await fetch(`${normalizeApiUrl(currentConfig.apiUrl)}/api/bookmarks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Token': config.apiToken
+          'X-API-Token': currentConfig.apiToken
         },
         body: JSON.stringify({
           title: tab.title || '',
@@ -61,7 +87,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (response.ok) {
         alert('保存成功！');
       } else {
-        alert('保存失败');
+        const message = await getErrorMessage(response);
+        alert(`保存失败${message ? `：${message}` : '，请检查配置'}`);
       }
     } catch (error) {
       alert('网络错误');
@@ -69,9 +96,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   openPanelBtn.addEventListener('click', async () => {
-    const config = await chrome.storage.local.get('apiUrl');
-    const url = config.apiUrl || 'http://localhost:3000';
-    window.open(url, '_blank');
+    const currentConfig = await getConfig();
+    window.open(buildPanelUrl(currentConfig.apiUrl || 'http://localhost:3000', currentConfig.apiToken), '_blank');
   });
 
   optionsBtn.addEventListener('click', () => {

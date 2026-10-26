@@ -1,3 +1,23 @@
+const normalizeApiUrl = (apiUrl) => (apiUrl || '').trim().replace(/\/+$/, '');
+
+const notify = (message) => {
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: chrome.runtime.getURL('icons/icon48.png'),
+    title: '书签面板',
+    message
+  });
+};
+
+const getErrorMessage = async (response) => {
+  try {
+    const data = await response.json();
+    return data.message || data.error || '';
+  } catch (error) {
+    return '';
+  }
+};
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'save-bookmark') {
     await saveCurrentPage();
@@ -14,17 +34,12 @@ const saveCurrentPage = async () => {
 
   const config = await chrome.storage.local.get(['apiUrl', 'apiToken']);
   if (!config.apiUrl || !config.apiToken) {
-    chrome.notifications.create({
-      type: 'basic',
-      iconUrl: '../icons/icon48.png',
-      title: '书签面板',
-      message: '请先配置 API URL 和 Token'
-    });
+    notify('请先配置 API URL 和 Token');
     return;
   }
 
   try {
-    const response = await fetch(`${config.apiUrl}/api/bookmarks`, {
+    const response = await fetch(`${normalizeApiUrl(config.apiUrl)}/api/bookmarks`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -38,33 +53,21 @@ const saveCurrentPage = async () => {
     });
 
     if (response.ok) {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: '../icons/icon48.png',
-        title: '书签面板',
-        message: '书签保存成功！'
-      });
+      notify('书签保存成功！');
     } else {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: '../icons/icon48.png',
-        title: '书签面板',
-        message: '保存失败，请检查配置'
-      });
+      const message = await getErrorMessage(response);
+      notify(message ? `保存失败：${message}` : '保存失败，请检查配置');
     }
   } catch (error) {
-    chrome.notifications.create({
-      type: 'basic',
-      iconUrl: '../icons/icon48.png',
-      title: '书签面板',
-      message: '网络错误，请稍后重试'
-    });
+    notify('网络错误，请稍后重试');
   }
 };
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'saveBookmark') {
-    saveCurrentPage().then(() => sendResponse({ success: true }));
+    saveCurrentPage()
+      .then(() => sendResponse({ success: true }))
+      .catch(() => sendResponse({ success: false }));
     return true;
   }
 });

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
+const apiTokenService = require('../services/apiTokenService');
 const { successResponse, errorResponse } = require('../utils/response');
 
 const authController = {
@@ -55,6 +56,40 @@ const authController = {
 
   async logout(req, res) {
     res.json(successResponse(null, '登出成功'));
+  },
+
+  /**
+   * 使用 API Token 换取 JWT，供浏览器插件免密进入面板。
+   */
+  async tokenLogin(req, res, next) {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        return next(errorResponse('缺少 API Token', 'MISSING_TOKEN', 400));
+      }
+
+      const apiToken = await apiTokenService.verifyToken(token);
+      if (!apiToken) {
+        return next(errorResponse('API Token 无效', 'INVALID_API_TOKEN', 401));
+      }
+
+      const user = await userService.findById(apiToken.userId);
+      if (!user) {
+        return next(errorResponse('API Token 无效', 'INVALID_API_TOKEN', 401));
+      }
+
+      const jwtToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN
+      });
+
+      res.json(successResponse({
+        token: jwtToken,
+        user: { id: user.id, username: user.username, email: user.email }
+      }, '登录成功'));
+    } catch (error) {
+      next(error);
+    }
   },
 
   async getMe(req, res, next) {

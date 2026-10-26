@@ -8,7 +8,12 @@ const apiTokenService = {
 
   async createToken(userId, name = 'Default') {
     const token = await this.generateToken();
-    return ApiToken.create({ userId, token, name });
+    const record = await ApiToken.create({
+      userId,
+      name,
+      token: ApiToken.hashToken(token)
+    });
+    return { token, record };
   },
 
   async getTokens(userId) {
@@ -29,20 +34,24 @@ const apiTokenService = {
     const token = await ApiToken.findOne({ where: { userId, id } });
     if (!token) throw new Error('Token not found');
     const newToken = await this.generateToken();
-    token.token = await require('bcrypt').hash(newToken, 10);
+    token.token = ApiToken.hashToken(newToken);
     await token.save();
     return { token: newToken, record: token };
   },
 
-  async verifyToken(userId, token) {
-    const apiToken = await ApiToken.findOne({ where: { userId } });
+  /**
+   * 校验明文 API Token，返回对应的 Token 记录。
+   * 可选传入 userId，用于确认 Token 归属。
+   */
+  async verifyToken(rawToken, userId = null) {
+    if (!rawToken) return null;
+    const apiToken = await ApiToken.findOne({
+      where: { token: ApiToken.hashToken(rawToken) }
+    });
     if (!apiToken) return null;
-    const isValid = await apiToken.compareToken(token);
-    if (isValid) {
-      await apiToken.update({ lastUsedAt: new Date() });
-      return apiToken;
-    }
-    return null;
+    if (userId !== null && apiToken.userId !== userId) return null;
+    await apiToken.update({ lastUsedAt: new Date() });
+    return apiToken;
   }
 };
 

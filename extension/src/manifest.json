@@ -3,7 +3,7 @@
   "name": "书签管理面板插件",
   "version": "1.0.0",
   "description": "快速保存网页到书签管理面板",
-  "permissions": ["storage", "activeTab", "tabs", "bookmarks"],
+  "permissions": ["storage", "activeTab", "tabs", "bookmarks", "notifications", "browserSettings"],
   "background": {
     "service_worker": "src/background/background.js"
   },

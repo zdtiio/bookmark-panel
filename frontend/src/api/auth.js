@@ -7,6 +7,10 @@ const authApi = {
     return axiosInstance.post('/auth/login', { email, password });
   },
 
+  tokenLogin: async (token) => {
+    return axiosInstance.post('/auth/token-login', { token });
+  },
+
   register: async (username, email, password) => {
     return axiosInstance.post('/auth/register', { username, email, password });
   },

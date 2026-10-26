@@ -1,5 +1,30 @@
+const normalizeApiUrl = (apiUrl) => (apiUrl || '').trim().replace(/\/+$/, '');
+
+const buildPanelUrl = (apiUrl, apiToken) => {
+  const baseUrl = normalizeApiUrl(apiUrl) || 'http://localhost:3000';
+  if (!apiToken) return baseUrl;
+
+  try {
+    const url = new URL(baseUrl);
+    url.hash = `apiToken=${encodeURIComponent(apiToken)}`;
+    return url.toString();
+  } catch (error) {
+    return baseUrl;
+  }
+};
+
+const getErrorMessage = async (response) => {
+  try {
+    const data = await response.json();
+    return data.message || data.error || '';
+  } catch (error) {
+    return '';
+  }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   const saveBtn = document.getElementById('saveBtn');
+  const openPanelBtn = document.getElementById('openPanelBtn');
   const optionsBtn = document.getElementById('optionsBtn');
   const statusDiv = document.getElementById('status');
 
@@ -19,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showStatus('success', '正在保存...');
 
     try {
-      const response = await fetch(`${config.apiUrl}/api/bookmarks`, {
+      const response = await fetch(`${normalizeApiUrl(config.apiUrl)}/api/bookmarks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -38,11 +63,22 @@ document.addEventListener('DOMContentLoaded', () => {
           window.close();
         }, 1000);
       } else {
-        showStatus('error', '保存失败，请检查配置');
+        const message = await getErrorMessage(response);
+        showStatus('error', message ? `保存失败：${message}` : '保存失败，请检查配置');
       }
     } catch (error) {
       showStatus('error', '网络错误，请稍后重试');
     }
+  });
+
+  openPanelBtn.addEventListener('click', async () => {
+    const config = await chrome.storage.local.get(['apiUrl', 'apiToken']);
+    if (!config.apiUrl) {
+      showStatus('error', '请先配置 API URL');
+      return;
+    }
+    chrome.tabs.create({ url: buildPanelUrl(config.apiUrl, config.apiToken) });
+    window.close();
   });
 
   optionsBtn.addEventListener('click', () => {

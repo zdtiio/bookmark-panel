@@ -1,6 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 
 const ApiToken = sequelize.define('ApiToken', {
   id: {
@@ -29,16 +29,18 @@ const ApiToken = sequelize.define('ApiToken', {
     type: DataTypes.DATE,
     allowNull: true
   }
-}, {
-  hooks: {
-    beforeCreate: async (token) => {
-      token.token = await bcrypt.hash(token.token, 10);
-    }
-  }
 });
 
-ApiToken.prototype.compareToken = async function(token) {
-  return bcrypt.compare(token, this.token);
+ApiToken.hashToken = (rawToken) => {
+  return crypto.createHash('sha256').update(String(rawToken)).digest('hex');
+};
+
+ApiToken.prototype.compareToken = async function(rawToken) {
+  if (!this.token || !rawToken) return false;
+  const expected = Buffer.from(ApiToken.hashToken(rawToken));
+  const actual = Buffer.from(this.token);
+  if (expected.length !== actual.length) return false;
+  return crypto.timingSafeEqual(expected, actual);
 };
 
 module.exports = ApiToken;

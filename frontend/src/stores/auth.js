@@ -10,20 +10,29 @@ export const useAuthStore = defineStore('auth', () => {
     return !!token.value && !!user.value;
   };
 
+  const applyAuth = (data) => {
+    token.value = data.token;
+    user.value = data.user;
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+  };
+
   const login = async (email, password) => {
     const response = await authApi.login(email, password);
-    token.value = response.token;
-    user.value = response.user;
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
+    applyAuth(response);
   };
 
   const register = async (username, email, password) => {
     const response = await authApi.register(username, email, password);
-    token.value = response.token;
-    user.value = response.user;
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
+    applyAuth(response);
+  };
+
+  /**
+   * 使用 API Token（浏览器插件配置）换取登录态，实现免密登录。
+   */
+  const loginWithToken = async (apiToken) => {
+    const response = await authApi.tokenLogin(apiToken);
+    applyAuth(response);
   };
 
   const logout = async () => {
@@ -51,6 +60,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     login,
     register,
+    loginWithToken,
     logout,
     checkAuth
   };
