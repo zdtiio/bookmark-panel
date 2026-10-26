@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "书签管理面板插件",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "快速保存网页到书签管理面板",
   "permissions": ["storage", "activeTab", "tabs", "bookmarks", "notifications", "browserSettings"],
   "background": {
