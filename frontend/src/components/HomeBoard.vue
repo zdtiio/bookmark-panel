@@ -494,7 +494,7 @@ const getTextIconStyle = (title) => {
 
 @media (max-width: 768px) {
   .home-board {
-    padding: 130px 12px 16px;
+    padding: 160px 12px 16px;
   }
 
   .board-header {

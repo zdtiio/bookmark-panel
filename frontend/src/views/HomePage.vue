@@ -1235,7 +1235,8 @@ onUnmounted(() => {
 
   .main-content {
     flex-direction: column;
-    padding: 130px 12px 16px;
+    /* 移动端头部为三行（标题 / 功能按钮 / 搜索栏），需预留对应高度 */
+    padding: 160px 12px 16px;
     gap: 16px;
     overflow-y: auto;
     max-height: calc(100vh - 16px);

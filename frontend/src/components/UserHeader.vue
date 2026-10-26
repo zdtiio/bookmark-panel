@@ -243,11 +243,12 @@ onUnmounted(() => {
   .header {
     flex-wrap: wrap;
     padding: 8px 12px;
-    gap: 8px;
+    gap: 10px 8px;
   }
 
   .header-left {
     order: 1;
+    flex: 0 0 100%;
     width: 100%;
     justify-content: center;
   }
@@ -277,8 +278,10 @@ onUnmounted(() => {
     line-height: 1.2;
   }
 
+  /* 搜索栏单独占一行，并排在功能按钮下方，避免与退出按钮挤在一起误触 */
   .header-center {
     order: 3;
+    flex: 0 0 100%;
     width: 100%;
     max-width: 100%;
     margin: 0;
@@ -286,7 +289,8 @@ onUnmounted(() => {
 
   .header-right {
     order: 2;
-    margin-left: auto;
+    flex: 0 0 auto;
+    margin: 0 auto;
   }
 
   .header-btn {

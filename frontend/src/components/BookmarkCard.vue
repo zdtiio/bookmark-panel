@@ -15,9 +15,9 @@
     @dragend="$emit('dragend')"
     @dragover.prevent="$emit('dragover', $event, index)"
     @drop="$emit('drop', $event)"
-    @touchstart="$emit('touchstart', $event, bookmark, index)"
-    @touchmove.prevent="$emit('touchmove', $event, index)"
-    @touchend="$emit('touchend', $event)"
+    @touchstart="handleTouchStart"
+    @touchmove="handleTouchMove"
+    @touchend="handleTouchEnd"
   >
     <div v-if="isEditMode && !isSearchResult" class="drag-handle">
       <GripVertical />
@@ -138,6 +138,30 @@ const handleClick = () => {
 
 const handleSelect = () => {
   emit('select', props.bookmark);
+};
+
+// 只有编辑模式下按住拖动手柄才进入拖动；
+// 其余情况不拦截 touchmove，否则整个书签列表都无法上下滑动
+let touchDragging = false;
+
+const handleTouchStart = (event) => {
+  if (!props.isEditMode || props.isSearchResult) return;
+  if (!event.target?.closest?.('.drag-handle')) return;
+  touchDragging = true;
+  emit('touchstart', event, props.bookmark, props.index);
+};
+
+const handleTouchMove = (event) => {
+  if (!touchDragging) return;
+  event.preventDefault();
+  emit('touchmove', event, props.index);
+};
+
+const handleTouchEnd = (event) => {
+  if (touchDragging) {
+    emit('touchend', event);
+  }
+  touchDragging = false;
 };
 
 const handleDragStart = (event, bookmark) => {
@@ -442,6 +466,17 @@ const getTextIconStyle = (title) => {
   .bookmark-card {
     padding: 10px;
     gap: 10px;
+  }
+
+  .drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    flex-shrink: 0;
+    opacity: 0.8;
   }
 
   .bookmark-icon {
