@@ -1,10 +1,10 @@
 {
   "name": "bookmark-panel-extension",
-  "version": "1.0.0",
+  "version": "1.0.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run build:chrome && npm run build:firefox",
     "build:chrome": "vite build --mode chrome",
     "build:firefox": "vite build --mode firefox",
     "build:edge": "vite build --mode edge"

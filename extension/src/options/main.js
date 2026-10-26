@@ -62,12 +62,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('success', '设置保存成功！');
 
     if (newConfig.replaceHomepage) {
+      // browserSettings 是 Firefox 专有 API；Chrome 不提供该能力，只能提示用户手动设置
+      const homepageOverride = chrome.browserSettings?.homepageOverride;
+
+      if (!homepageOverride) {
+        showStatus('info', '当前浏览器不支持由插件修改主页，请在浏览器设置中手动将主页设为书签面板');
+        return;
+      }
+
       try {
-        await chrome.browserSettings.homepageOverride.set({
+        await homepageOverride.set({
           value: chrome.runtime.getURL('src/newtab/index.html')
         });
       } catch (error) {
         console.warn('设置主页失败:', error);
+        showStatus('error', '设置主页失败，请在浏览器设置中手动设置');
       }
     }
   });
