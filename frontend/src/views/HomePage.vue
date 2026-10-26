@@ -11,7 +11,10 @@
         @search-clear="handleSearchClear"
       />
 
-      <main class="main-content">
+      <main
+        class="main-content"
+        :class="{ 'sidebar-hidden': sidebarCollapsed || !config.showFolders }"
+      >
         <FolderSidebar
           v-if="config.showFolders"
           :folder-tree="folderTree"
@@ -24,27 +27,45 @@
           @edit="editFolder"
           @delete="handleFolderDelete"
           @folder-drop="handleFolderDrop"
+          @toggle-collapse="toggleSidebar"
         />
 
+        <div
+          v-if="config.showFolders && !sidebarCollapsed && isMobile"
+          class="sidebar-backdrop"
+          @click="sidebarCollapsed = true"
+        ></div>
+
         <button
+          v-if="config.showFolders && sidebarCollapsed"
           class="sidebar-toggle-btn"
           @click="toggleSidebar"
-          title="切换文件夹"
+          title="显示侧栏"
         >
-          <Menu :class="{ rotate: sidebarCollapsed }" />
+          <SidebarOpen />
         </button>
 
         <BookmarkSection
           :bookmarks="filteredBookmarks"
+          :sub-folders="currentSubFolders"
+          :all-folders="folders"
           :current-folder-path="currentFolderPath"
           :selected-folder-id="selectedFolderId"
           :is-edit-mode="isEditMode"
           :show-icons="config.showIcons"
+          :is-mobile="isMobile"
           :dragging-id="draggingBookmark?.id"
           :drop-target-index="dropTargetIndex"
           :selected-ids="selectedBookmarkIds"
           :is-search-result="!!currentSearchQuery"
+          :dragging-folder-id="draggingSubFolder?.id"
+          :folder-drop-target-index="subFolderDropIndex"
           @select-folder="selectFolder"
+          @subfolder-open="openSubFolder"
+          @subfolder-dragstart="handleSubFolderDragStart"
+          @subfolder-dragend="handleSubFolderDragEnd"
+          @subfolder-dragover="handleSubFolderDragOver"
+          @subfolder-drop="handleSubFolderDrop"
           @toggle-edit="toggleEditMode"
           @open-bookmark="openBookmark"
           @edit-bookmark="editBookmark"
@@ -129,7 +150,7 @@ import { useAuthStore } from "../stores/auth";
 import { useBookmarkStore } from "../stores/bookmarks";
 import { useConfigStore } from "../stores/config";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Menu } from "lucide-vue-next";
+import { SidebarOpen } from "lucide-vue-next";
 
 import GuestView from "../components/GuestView.vue";
 import UserHeader from "../components/UserHeader.vue";
@@ -155,8 +176,11 @@ const isEditMode = ref(false);
 const draggingBookmark = ref(null);
 const dropTargetIndex = ref(-1);
 const expandedFolders = ref([]);
-const sidebarCollapsed = ref(false);
+const sidebarCollapsed = ref(window.innerWidth <= 768);
 const currentSearchQuery = ref('');
+
+const draggingSubFolder = ref(null);
+const subFolderDropIndex = ref(-1);
 
 const showAddBookmark = ref(false);
 const showAddFolder = ref(false);
@@ -169,10 +193,23 @@ const editingFolder = ref(null);
 const editingBookmark = ref(null);
 const targetFolderId = ref(null);
 
-const isMobile = ref(window.innerWidth < 768);
+const isMobile = ref(window.innerWidth <= 768);
 
 const handleResize = () => {
-  isMobile.value = window.innerWidth < 768;
+  const wasMobile = isMobile.value;
+  isMobile.value = window.innerWidth <= 768;
+  if (!wasMobile && isMobile.value) {
+    sidebarCollapsed.value = true;
+  }
+};
+
+const sortFolders = (list) => {
+  return [...list].sort((a, b) => {
+    const orderA = a.sortOrder ?? 0;
+    const orderB = b.sortOrder ?? 0;
+    if (orderA !== orderB) return orderA - orderB;
+    return String(a.name || "").localeCompare(String(b.name || ""), "zh-CN");
+  });
 };
 
 
@@ -190,13 +227,38 @@ const filteredBookmarks = computed(() => {
   return result;
 });
 
+const currentSubFolders = computed(() => {
+  if (currentSearchQuery.value) return [];
+  const parentId = selectedFolderId.value;
+  const hasParent = parentId !== null && parentId !== undefined && parentId !== "";
+
+  return sortFolders(
+    folders.value.filter((folder) => {
+      const folderParentId = folder.parentId;
+      const folderHasParent =
+        folderParentId !== null && folderParentId !== undefined && folderParentId !== "";
+      if (!hasParent) return !folderHasParent;
+      return folderHasParent && String(folderParentId) === String(parentId);
+    }),
+  );
+});
+
 const buildFolderTree = (parentId = null) => {
-  const children = folders.value.filter((f) => f.parentId === parentId);
+  const children = sortFolders(
+    folders.value.filter((f) => {
+      const folderParentId = f.parentId;
+      const folderHasParent =
+        folderParentId !== null && folderParentId !== undefined && folderParentId !== "";
+      if (parentId === null) return !folderHasParent;
+      return folderHasParent && String(folderParentId) === String(parentId);
+    }),
+  );
   return children.map((folder) => ({
     id: folder.id,
     label: folder.name,
     name: folder.name,
     parentId: folder.parentId,
+    sortOrder: folder.sortOrder,
     children: buildFolderTree(folder.id),
   }));
 };
@@ -225,10 +287,7 @@ const moveFolderTree = computed(() => {
 
 const currentFolderPath = computed(() => {
   if (selectedFolderId.value === null || selectedFolderId.value === undefined) {
-    const rootFolder = folders.value.find((f) => !f.parentId);
-    return rootFolder
-      ? [{ id: rootFolder.id, name: rootFolder.name }]
-      : [{ id: null, name: "全部书签" }];
+    return [{ id: null, name: "全部书签" }];
   }
   const folderId = selectedFolderId.value;
   const path = [];
@@ -286,8 +345,35 @@ const selectFolder = async (folderOrId) => {
   const folderId = typeof folderOrId === "object" ? folderOrId.id : folderOrId;
   selectedFolderId.value = folderId;
   localStorage.setItem("selectedFolderId", folderId);
-  
+  selectedBookmarkIds.value = [];
+
+  if (isMobile.value) {
+    sidebarCollapsed.value = true;
+  }
+
   await bookmarkStore.loadBookmarksByFolder(folderId);
+};
+
+const revealFolderInTree = (folderId) => {
+  let currentId = folderId;
+  const parentIds = [];
+  while (currentId) {
+    const folder = folders.value.find((f) => String(f.id) === String(currentId));
+    if (!folder || !folder.parentId) break;
+    parentIds.unshift(folder.parentId);
+    currentId = folder.parentId;
+  }
+  parentIds.forEach((id) => {
+    if (!expandedFolders.value.includes(id)) {
+      expandedFolders.value.push(id);
+    }
+  });
+};
+
+const openSubFolder = async (folder) => {
+  const folderId = typeof folder === "object" ? folder.id : folder;
+  await selectFolder(folderId);
+  revealFolderInTree(folderId);
 };
 
 const toggleFolderExpand = (folderId) => {
@@ -351,50 +437,144 @@ const handleFolderDelete = async (folder) => {
   }
 };
 
+const getChildrenOf = (parentId) =>
+  sortFolders(
+    folders.value.filter((folder) => {
+      const folderParentId = folder.parentId;
+      const folderHasParent =
+        folderParentId !== null && folderParentId !== undefined && folderParentId !== "";
+      if (parentId === null || parentId === undefined) return !folderHasParent;
+      return folderHasParent && String(folderParentId) === String(parentId);
+    }),
+  );
+
+const isDescendantOf = (folderId, ancestorId) => {
+  let current = folders.value.find((f) => String(f.id) === String(folderId));
+  while (current && current.parentId) {
+    if (String(current.parentId) === String(ancestorId)) return true;
+    current = folders.value.find((f) => String(f.id) === String(current.parentId));
+  }
+  return false;
+};
+
 const handleFolderDrop = async (dropData) => {
   const { draggedId, targetId, dropType } = dropData;
-  const draggedFolder = folders.value.find((f) => f.id === draggedId);
-  const targetFolder = folders.value.find((f) => f.id === targetId);
+  const draggedFolder = folders.value.find(
+    (f) => String(f.id) === String(draggedId),
+  );
+  const targetFolder = folders.value.find(
+    (f) => String(f.id) === String(targetId),
+  );
 
   if (!draggedFolder || !targetFolder) return;
+  if (String(draggedFolder.id) === String(targetFolder.id)) return;
+  if (isDescendantOf(targetId, draggedId)) {
+    ElMessage.warning("不能将文件夹移动到它自己的子文件夹中");
+    return;
+  }
 
   if (dropType === "inner") {
-    if (targetId === draggedFolder.id) return;
+    const siblings = getChildrenOf(targetId);
+    const maxSortOrder = siblings.length
+      ? Math.max(...siblings.map((f) => f.sortOrder ?? 0))
+      : -1;
+
     await bookmarkStore.updateFolderParent(draggedFolder.id, targetId);
+    await bookmarkStore.updateFolderOrder([
+      { id: draggedFolder.id, sortOrder: maxSortOrder + 1 },
+    ]);
     await bookmarkStore.loadFolders();
+
+    if (!expandedFolders.value.includes(targetId)) {
+      expandedFolders.value.push(targetId);
+    }
     ElMessage.success("文件夹已移动到目标文件夹");
-  } else {
-    const targetParentId = targetFolder.parentId;
-    const draggedParentId = draggedFolder.parentId;
+    return;
+  }
 
-    if (targetParentId !== draggedParentId) {
-      await bookmarkStore.updateFolderParent(draggedFolder.id, targetParentId);
-    }
+  const targetParentId = targetFolder.parentId ?? null;
+  const draggedParentId = draggedFolder.parentId ?? null;
+  const sameParent = String(draggedParentId ?? "") === String(targetParentId ?? "");
 
-    const siblings = folders.value.filter((f) => f.parentId === targetParentId);
-    const sortedSiblings = [...siblings].sort(
-      (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0),
-    );
+  const siblings = getChildrenOf(targetParentId);
+  const withoutDragged = siblings.filter(
+    (f) => String(f.id) !== String(draggedFolder.id),
+  );
 
-    const targetIndex = sortedSiblings.findIndex((s) => s.id === targetId);
-    let newIndex = targetIndex;
+  let insertIndex = withoutDragged.findIndex(
+    (f) => String(f.id) === String(targetId),
+  );
+  if (insertIndex === -1) {
+    insertIndex = withoutDragged.length;
+  } else if (dropType === "after") {
+    insertIndex += 1;
+  }
 
-    if (dropType === "after") {
-      newIndex = targetIndex + 1;
-    }
+  if (!sameParent) {
+    await bookmarkStore.updateFolderParent(draggedFolder.id, targetParentId);
+  }
 
-    const filtered = sortedSiblings.filter((s) => s.id !== draggedId);
-    filtered.splice(newIndex, 0, draggedFolder);
+  withoutDragged.splice(insertIndex, 0, draggedFolder);
 
-    const updateData = filtered.map((folder, index) => ({
+  await bookmarkStore.updateFolderOrder(
+    withoutDragged.map((folder, index) => ({
       id: folder.id,
       sortOrder: index,
-    }));
+    })),
+  );
+  await bookmarkStore.loadFolders();
+  ElMessage.success("文件夹顺序已更新");
+};
 
-    await bookmarkStore.updateFolderOrder(updateData);
-    await bookmarkStore.loadFolders();
-    ElMessage.success("文件夹顺序已更新");
+const handleSubFolderDragStart = (event, folder) => {
+  draggingSubFolder.value = folder;
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData(
+    "text/plain",
+    JSON.stringify({ type: "folder", id: folder.id }),
+  );
+};
+
+const handleSubFolderDragEnd = () => {
+  draggingSubFolder.value = null;
+  subFolderDropIndex.value = -1;
+};
+
+const handleSubFolderDragOver = (event, index) => {
+  if (!draggingSubFolder.value) return;
+  event.dataTransfer.dropEffect = "move";
+  const rect = event.currentTarget.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  subFolderDropIndex.value = x < rect.width / 2 ? index : index + 1;
+};
+
+const handleSubFolderDrop = async () => {
+  if (!draggingSubFolder.value) return;
+
+  const targetIndex = subFolderDropIndex.value;
+  const list = [...currentSubFolders.value];
+  const sourceIndex = list.findIndex(
+    (f) => String(f.id) === String(draggingSubFolder.value.id),
+  );
+
+  draggingSubFolder.value = null;
+  subFolderDropIndex.value = -1;
+
+  if (sourceIndex === -1 || targetIndex === -1) return;
+
+  if (sourceIndex < targetIndex) {
+    const [removed] = list.splice(sourceIndex, 1);
+    list.splice(targetIndex - 1, 0, removed);
+  } else if (sourceIndex > targetIndex) {
+    const [removed] = list.splice(sourceIndex, 1);
+    list.splice(targetIndex, 0, removed);
   }
+
+  await bookmarkStore.updateFolderOrder(
+    list.map((folder, index) => ({ id: folder.id, sortOrder: index })),
+  );
+  await bookmarkStore.loadFolders();
+  ElMessage.success("文件夹顺序已更新");
 };
 
 const toggleEditMode = () => {
@@ -864,13 +1044,25 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+.main-content.sidebar-hidden {
+  gap: 0;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 105;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+}
+
 .sidebar-toggle-btn {
-  display: none;
+  display: flex;
   position: fixed;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 100;
+  z-index: 120;
   width: 40px;
   height: 40px;
   background: rgba(255, 255, 255, 0.15);
@@ -890,10 +1082,6 @@ onUnmounted(() => {
   transition: transform 0.3s ease;
 }
 
-.sidebar-toggle-btn svg.rotate {
-  transform: rotate(180deg);
-}
-
 .sidebar-toggle-btn:hover {
   background: rgba(255, 255, 255, 0.25);
 }
@@ -904,13 +1092,8 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .sidebar-toggle-btn {
-    display: flex;
     left: 0;
     transition: left 0.3s ease;
-  }
-
-  .sidebar.collapsed ~ .sidebar-toggle-btn {
-    left: 260px;
   }
 
   .main-content {

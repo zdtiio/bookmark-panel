@@ -108,7 +108,14 @@ export const useBookmarkStore = defineStore('bookmarks', () => {
   const updateFolderOrder = async (foldersData) => {
     try {
       await folderApi.updateFolderOrder(foldersData);
-      folders.value = foldersData;
+      const orderMap = new Map(
+        foldersData.map((folder) => [String(folder.id), folder.sortOrder]),
+      );
+      folders.value = folders.value.map((folder) =>
+        orderMap.has(String(folder.id))
+          ? { ...folder, sortOrder: orderMap.get(String(folder.id)) }
+          : folder,
+      );
     } catch (error) {
       console.error('Failed to update folder order:', error);
     }

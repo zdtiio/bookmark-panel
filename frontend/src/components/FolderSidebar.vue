@@ -2,9 +2,14 @@
   <aside class="sidebar" :class="{ 'collapsed': collapsed }">
     <div class="sidebar-header">
       <h3>文件夹</h3>
-      <button class="add-folder-btn" @click="$emit('add-folder')">
-        <Plus />
-      </button>
+      <div class="header-actions">
+        <button class="add-folder-btn" @click="$emit('add-folder')" title="新建文件夹">
+          <Plus />
+        </button>
+        <button class="collapse-btn" @click="$emit('toggle-collapse')" title="隐藏侧栏">
+          <SidebarClose />
+        </button>
+      </div>
     </div>
     <div class="folder-tree-container">
       <FolderTreeNode
@@ -31,7 +36,7 @@
 </template>
 
 <script setup>
-import { Plus, Folder } from 'lucide-vue-next';
+import { Plus, Folder, SidebarClose } from 'lucide-vue-next';
 import FolderTreeNode from './FolderTreeNode.vue';
 
 defineProps({
@@ -57,6 +62,7 @@ const emit = defineEmits([
   'select',
   'add-folder',
   'toggle-expand',
+  'toggle-collapse',
   'edit',
   'delete',
   'folder-drop'
@@ -90,6 +96,7 @@ const handleDrop = (dropData) => {
 <style scoped>
 .sidebar {
   width: 260px;
+  min-width: 0;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -99,7 +106,18 @@ const handleDrop = (dropData) => {
   border-radius: 16px;
   padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: transform 0.3s ease;
+  overflow: hidden;
+  transition: width 0.25s ease, padding 0.25s ease, opacity 0.2s ease,
+    transform 0.3s ease, border-color 0.25s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sidebar-header {
@@ -108,6 +126,12 @@ const handleDrop = (dropData) => {
   justify-content: space-between;
   margin-bottom: 20px;
   flex-shrink: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .sidebar-header h3 {
@@ -150,6 +174,33 @@ const handleDrop = (dropData) => {
 .add-folder-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+}
+
+.collapse-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.collapse-btn svg {
+  width: 16px;
+  height: 16px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.collapse-btn:hover svg {
+  color: #fff;
 }
 
 .folder-tree-container {
@@ -204,14 +255,22 @@ const handleDrop = (dropData) => {
     width: 260px;
     padding: 16px;
     padding-top: 70px;
-    transform: translateX(-100%);
+    transform: translateX(0);
     z-index: 110;
     border-radius: 0 16px 16px 0;
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+    opacity: 1;
+    border-width: 1px;
   }
 
   .sidebar.collapsed {
-    transform: translateX(0);
+    width: 260px;
+    padding: 16px;
+    padding-top: 70px;
+    border-width: 1px;
+    opacity: 1;
+    transform: translateX(-100%);
+    pointer-events: none;
   }
 
   .sidebar-header {
