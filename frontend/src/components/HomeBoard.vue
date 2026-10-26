@@ -195,8 +195,9 @@ const handleDragEnd = () => {
 };
 
 const getIconUrl = (icon) => {
-  if (icon.startsWith('http')) return icon;
-  return '/api' + icon;
+  if (!icon) return '';
+  if (/^(https?:|data:|blob:)/i.test(icon)) return icon;
+  return icon.startsWith('/') ? icon : `/${icon}`;
 };
 
 const getFirstLetter = (title) => {

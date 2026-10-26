@@ -39,7 +39,6 @@ const folderController = {
       const folder = await folderService.updateFolder(req.user.id, req.params.id, name);
       res.json(successResponse(folder, '更新文件夹成功'));
     } catch (error) {
-      error.statusCode = 404;
       next(error);
     }
   },
@@ -50,7 +49,6 @@ const folderController = {
       const folder = await folderService.updateFolderParent(req.user.id, req.params.id, parentId);
       res.json(successResponse(folder, '移动文件夹成功'));
     } catch (error) {
-      error.statusCode = 404;
       next(error);
     }
   },
@@ -70,7 +68,6 @@ const folderController = {
       await folderService.deleteFolder(req.user.id, req.params.id);
       res.json(successResponse(null, '删除文件夹成功'));
     } catch (error) {
-      error.statusCode = 404;
       next(error);
     }
   }

@@ -116,9 +116,10 @@
           <h3>导入数据</h3>
           <p>从备份文件导入数据</p>
           <el-upload
-            action="/api/configs/import"
+            action="/api/config/import"
             :headers="{ Authorization: `Bearer ${authStore.token}` }"
             :on-success="handleImportSuccess"
+            :on-error="handleImportError"
             :before-upload="beforeImport"
             accept=".json"
             class="import-upload"
@@ -197,6 +198,11 @@ const emit = defineEmits(['close']);
 const activeTab = ref('appearance');
 const localConfig = ref({ ...configStore.config });
 const customSearchEngine = ref('');
+const PRESET_SEARCH_ENGINES = [
+  'https://www.google.com/search?q=',
+  'https://www.baidu.com/s?wd=',
+  'https://www.bing.com/search?q='
+];
 
 const tokens = ref([]);
 const tokensLoaded = ref(false);
@@ -311,85 +317,103 @@ const deleteToken = async (id) => {
 };
 
 const exportData = async () => {
-    try {
-      const response = await fetch('/api/configs/export', {
-        headers: { Authorization: `Bearer ${authStore.token}` }
-      });
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, '0');
-      const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
-      a.download = `bookmark-backup-${dateStr}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      ElMessage.success('导出成功');
-    } catch (error) {
-      ElMessage.error('导出失败');
+  try {
+    const response = await fetch('/api/config/export', {
+      headers: { Authorization: `Bearer ${authStore.token}` }
+    });
+    if (!response.ok) {
+      let message = '导出失败';
+      try {
+        const data = await response.json();
+        message = data.message || message;
+      } catch (error) {
+        // ignore non-JSON error body
+      }
+      throw new Error(message);
     }
-  };
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+    a.download = `bookmark-backup-${dateStr}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    ElMessage.success('导出成功');
+  } catch (error) {
+    ElMessage.error(error.message || '导出失败');
+  }
+};
 
-  const exportBookmarks = async () => {
-    try {
-      const response = await fetch('/api/bookmarks/export?format=html', {
-        headers: { Authorization: `Bearer ${authStore.token}` }
-      });
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, '0');
-      const dateStr = `${now.getFullYear()}_${pad(now.getMonth() + 1)}_${pad(now.getDate())}`;
-      a.download = `chrome_bookmarks_${dateStr}.html`;
-      a.click();
-      URL.revokeObjectURL(url);
-      ElMessage.success('书签导出成功');
-    } catch (error) {
-      ElMessage.error('书签导出失败');
+const exportBookmarks = async () => {
+  try {
+    const response = await fetch('/api/bookmarks/export?format=html', {
+      headers: { Authorization: `Bearer ${authStore.token}` }
+    });
+    if (!response.ok) {
+      throw new Error('书签导出失败');
     }
-  };
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}_${pad(now.getMonth() + 1)}_${pad(now.getDate())}`;
+    a.download = `chrome_bookmarks_${dateStr}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    ElMessage.success('书签导出成功');
+  } catch (error) {
+    ElMessage.error(error.message || '书签导出失败');
+  }
+};
 
-  const handleBookmarkFileChange = async (file) => {
-    if (!importFolderId.value) {
-      ElMessage.error('请先选择目标文件夹');
-      return;
-    }
-    
-    importingBookmarks.value = true;
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const htmlContent = e.target.result;
-        try {
-          const importResponse = await fetch('/api/bookmarks/import', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${authStore.token}`
-            },
-            body: JSON.stringify({ 
-              format: 'html', 
-              htmlContent,
-              folderId: importFolderId.value
-            })
-          });
-          const result = await importResponse.json();
-          ElMessage.success(`成功导入 ${result.count} 个书签，创建 ${result.foldersCreated || 0} 个子文件夹`);
-        } catch (error) {
-          ElMessage.error('书签导入失败');
-        } finally {
-          importingBookmarks.value = false;
+const handleBookmarkFileChange = async (file) => {
+  if (!importFolderId.value) {
+    ElMessage.error('请先选择目标文件夹');
+    return;
+  }
+
+  importingBookmarks.value = true;
+  try {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const htmlContent = e.target.result;
+      try {
+        const importResponse = await fetch('/api/bookmarks/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authStore.token}`
+          },
+          body: JSON.stringify({
+            format: 'html',
+            htmlContent,
+            folderId: importFolderId.value
+          })
+        });
+        const result = await importResponse.json();
+        if (!importResponse.ok || result.success === false) {
+          throw new Error(result.message || '书签导入失败');
         }
-      };
-      reader.readAsText(file.raw, 'UTF-8');
-    } catch (error) {
-      ElMessage.error('读取文件失败');
-      importingBookmarks.value = false;
-    }
-  };
+        const importedCount = result.data?.count ?? 0;
+        const foldersCreated = result.data?.foldersCreated ?? 0;
+        ElMessage.success(`成功导入 ${importedCount} 个书签，创建 ${foldersCreated} 个子文件夹`);
+      } catch (error) {
+        ElMessage.error(error.message || '书签导入失败');
+      } finally {
+        importingBookmarks.value = false;
+      }
+    };
+    reader.readAsText(file.raw, 'UTF-8');
+  } catch (error) {
+    ElMessage.error('读取文件失败');
+    importingBookmarks.value = false;
+  }
+};
 
   const beforeBookmarkImport = () => {
     return false;
@@ -398,6 +422,10 @@ const exportData = async () => {
 const handleImportSuccess = () => {
   ElMessage.success('导入成功');
   window.location.reload();
+};
+
+const handleImportError = () => {
+  ElMessage.error('导入失败，请检查备份文件');
 };
 
 const beforeImport = (file) => {
@@ -412,9 +440,20 @@ const beforeImport = (file) => {
 const saveSettings = async () => {
   const configToSave = { ...localConfig.value };
   if (configToSave.searchEngine === 'custom') {
-    configToSave.searchEngine = customSearchEngine.value;
+    const customUrl = customSearchEngine.value.trim();
+    if (!customUrl) {
+      ElMessage.warning('请输入自定义搜索引擎URL');
+      return;
+    }
+    configToSave.searchEngine = customUrl;
   }
-  await configStore.saveConfig(configToSave);
+
+  const saved = await configStore.saveConfig(configToSave);
+  if (!saved) {
+    ElMessage.error('设置保存失败，请稍后重试');
+    return;
+  }
+
   ElMessage.success('设置已保存');
   emit('close');
   setTimeout(() => {
@@ -438,6 +477,14 @@ const loadFolders = async () => {
 const loadConfig = async () => {
   await configStore.loadConfig();
   localConfig.value = { ...configStore.config };
+
+  const engine = localConfig.value.searchEngine || '';
+  if (engine && !PRESET_SEARCH_ENGINES.includes(engine)) {
+    customSearchEngine.value = engine;
+    localConfig.value.searchEngine = 'custom';
+  } else {
+    customSearchEngine.value = '';
+  }
 };
 
 onMounted(async () => {

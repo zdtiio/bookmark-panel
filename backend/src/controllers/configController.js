@@ -52,11 +52,16 @@ const configController = {
         return res.status(400).json({ message: 'No file uploaded' });
       }
       const jsonString = req.file.buffer.toString('utf-8');
-      const data = JSON.parse(jsonString);
+      let data;
+      try {
+        data = JSON.parse(jsonString);
+      } catch (error) {
+        return res.status(400).json({ message: '导入文件不是有效的 JSON' });
+      }
       await configService.importUserData(req.user.id, data);
       res.json({ message: 'User data imported successfully' });
     } catch (error) {
-      res.status(500).json({ message: error.message });
+      res.status(error.statusCode || 500).json({ message: error.message });
     }
   },
 

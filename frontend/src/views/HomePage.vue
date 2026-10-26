@@ -699,7 +699,11 @@ const handleBatchMove = () => {
 };
 
 const confirmBatchMove = async () => {
-  if (targetFolderId.value === null && targetFolderId.value !== null) {
+  if (
+    targetFolderId.value === null ||
+    targetFolderId.value === undefined ||
+    targetFolderId.value === ""
+  ) {
     ElMessage.warning("请选择目标文件夹");
     return;
   }
@@ -1052,6 +1056,16 @@ const saveFolder = async ({ name, parentId, editingFolder: folderToEdit }) => {
   editingFolder.value = null;
 };
 
+const normalizeFolderId = (value) => {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text || text === "root" || text === "null" || text === "undefined") {
+    return null;
+  }
+  const numeric = Number(text);
+  return Number.isNaN(numeric) ? text : numeric;
+};
+
 const loadUserData = async () => {
   await configStore.loadConfig();
 
@@ -1063,21 +1077,13 @@ const loadUserData = async () => {
   await nextTick(() => {
     const storedValue = localStorage.getItem("selectedFolderId");
     const hasStoredSelection = storedValue !== null;
-    let storedFolderId = storedValue;
-    if (
-      storedFolderId === "null" ||
-      storedFolderId === "undefined" ||
-      storedFolderId === "root"
-    ) {
-      storedFolderId = null;
-    }
 
     let targetFolderId = hasStoredSelection
-      ? storedFolderId
-      : configStore.config.defaultFolderId || null;
+      ? normalizeFolderId(storedValue)
+      : normalizeFolderId(configStore.config.defaultFolderId);
 
     if (
-      targetFolderId &&
+      targetFolderId !== null &&
       !folders.value.some((f) => String(f.id) === String(targetFolderId))
     ) {
       targetFolderId = null;

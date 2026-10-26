@@ -36,13 +36,19 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   const logout = async () => {
-    await authApi.logout();
-    token.value = null;
-    user.value = null;
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('siteName');
-    document.title = 'Bookmark-Panel';
+    try {
+      await authApi.logout();
+    } catch (error) {
+      console.error('Failed to logout from server:', error);
+    } finally {
+      token.value = null;
+      user.value = null;
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('siteName');
+      localStorage.removeItem('bookmark-panel-config');
+      document.title = 'Bookmark-Panel';
+    }
   };
 
   const checkAuth = () => {

@@ -15,27 +15,6 @@ const buildPanelUrl = (apiUrl, apiToken) => {
 
 const getConfig = () => chrome.storage.local.get(['apiUrl', 'apiToken']);
 
-// 隐藏浏览器新标签页自带的元素（自定义按钮、扩展提示等）
-const removeChromeElements = () => {
-  setTimeout(() => {
-    document.querySelectorAll('*').forEach((el) => {
-      const ariaLabel = el.getAttribute('aria-label');
-      const className = typeof el.className === 'string' ? el.className : '';
-      const id = el.id;
-
-      if (
-        (ariaLabel && (ariaLabel.includes('自定义') || ariaLabel.includes('书签') || ariaLabel.includes('插件'))) ||
-        (className && (className.includes('customize') || className.includes('chrome') || className.includes('extension'))) ||
-        (id && (id.includes('customize') || id.includes('chrome'))) ||
-        (el.textContent && (el.textContent.includes('自定义') || el.textContent.includes('书签管理面板')))
-      ) {
-        el.style.display = 'none';
-        el.style.visibility = 'hidden';
-      }
-    });
-  }, 100);
-};
-
 const getErrorMessage = async (response) => {
   try {
     const data = await response.json();
@@ -54,7 +33,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   document.body.style.display = 'flex';
-  removeChromeElements();
 
   const timeDiv = document.getElementById('time');
   const dateDiv = document.getElementById('date');

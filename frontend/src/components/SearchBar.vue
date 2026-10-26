@@ -1,6 +1,6 @@
 <template>
   <div class="search-bar">
-    <div class="search-engine-wrapper">
+    <div class="search-engine-wrapper" ref="engineWrapperRef">
       <div 
         class="search-engine-btn" 
         @click="toggleEngineDropdown"
@@ -38,7 +38,8 @@
   </div>
 </template>
 
-<script setup>import { ref, computed, watch } from 'vue';
+<script setup>
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Search } from 'lucide-vue-next';
 import { useConfigStore } from '../stores/config';
 const props = defineProps({
@@ -55,7 +56,9 @@ const emit = defineEmits(['search', 'clear', 'web-search']);
 const configStore = useConfigStore();
 const searchQuery = ref('');
 const guestSearchEngine = ref('baidu');
+const customEngineUrl = ref('');
 const showEngineDropdown = ref(false);
+const engineWrapperRef = ref(null);
 const searchEngines = {
  google: 'https://www.google.com/search?q=',
  baidu: 'https://www.baidu.com/s?wd=',
@@ -64,40 +67,50 @@ const searchEngines = {
 const engineNames = {
  google: 'Google',
  baidu: '百度',
- bing: '必应'
+ bing: '必应',
+ custom: '自定义'
 };
-const engineList = ['baidu', 'google', 'bing'];
+const engineList = computed(() => {
+ const list = ['baidu', 'google', 'bing'];
+ if (customEngineUrl.value) list.push('custom');
+ return list;
+});
 const urlToEngineMap = {
  'https://www.google.com/search?q=': 'google',
  'https://www.baidu.com/s?wd=': 'baidu',
  'https://www.bing.com/search?q=': 'bing'
 };
+const applyConfiguredEngine = (engineUrl) => {
+  if (!engineUrl) return;
+  const engineName = urlToEngineMap[engineUrl];
+  if (engineName) {
+    guestSearchEngine.value = engineName;
+    customEngineUrl.value = '';
+  } else {
+    customEngineUrl.value = engineUrl;
+    guestSearchEngine.value = 'custom';
+  }
+};
+
 watch(() => props.isLoggedIn, (isLoggedIn) => {
   if (isLoggedIn) {
-    const configuredEngineUrl = configStore.config.searchEngine;
-    const engineName = urlToEngineMap[configuredEngineUrl];
-    if (engineName) {
-      guestSearchEngine.value = engineName;
-    }
+    applyConfiguredEngine(configStore.config.searchEngine);
   }
 }, { immediate: true });
 
 watch(() => configStore.config.searchEngine, (newEngineUrl) => {
   if (props.isLoggedIn) {
-    const engineName = urlToEngineMap[newEngineUrl];
-    if (engineName) {
-      guestSearchEngine.value = engineName;
-    }
+    applyConfiguredEngine(newEngineUrl);
   }
 });
 
 const selectedLabel = computed(() => {
-  const labels = { google: 'G', baidu: 'B', bing: 'Bi' };
+  const labels = { google: 'G', baidu: 'B', bing: 'Bi', custom: '自' };
   return labels[guestSearchEngine.value] || 'B';
 });
 
 const getEngineLabel = (engine) => {
-  const labels = { google: 'G', baidu: 'B', bing: 'Bi' };
+  const labels = { google: 'G', baidu: 'B', bing: 'Bi', custom: '自' };
   return labels[engine] || 'B';
 };
 
@@ -120,23 +133,36 @@ const handleInput = () => {
   }
 };
 
+const getSearchUrl = () => {
+  const baseUrl = guestSearchEngine.value === 'custom'
+    ? customEngineUrl.value
+    : searchEngines[guestSearchEngine.value];
+  if (!baseUrl) return '';
+  return baseUrl + encodeURIComponent(searchQuery.value);
+};
+
 const handleSearch = () => {
   if (!searchQuery.value.trim()) return;
-  
-  const searchUrl = searchEngines[guestSearchEngine.value] + encodeURIComponent(searchQuery.value);
+
+  const searchUrl = getSearchUrl();
+  if (!searchUrl) return;
   window.open(searchUrl, '_blank');
 };
 
 const handleClickOutside = (event) => {
-  const engineWrapper = document.querySelector('.search-engine-wrapper');
+  const engineWrapper = engineWrapperRef.value;
   if (engineWrapper && !engineWrapper.contains(event.target)) {
     showEngineDropdown.value = false;
   }
 };
 
-if (typeof window !== 'undefined') {
+onMounted(() => {
   document.addEventListener('click', handleClickOutside);
-}
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 </script>
 
 <style scoped>

@@ -60,7 +60,6 @@ const bookmarkController = {
       const bookmark = await bookmarkService.updateBookmark(req.user.id, req.params.id, req.body);
       res.json(successResponse(bookmark, '更新书签成功'));
     } catch (error) {
-      error.statusCode = 404;
       next(error);
     }
   },
@@ -71,7 +70,6 @@ const bookmarkController = {
       const bookmark = await bookmarkService.updateBookmarkFolder(req.user.id, req.params.id, folderId);
       res.json(successResponse(bookmark, '移动书签成功'));
     } catch (error) {
-      error.statusCode = 404;
       next(error);
     }
   },
@@ -101,30 +99,48 @@ const bookmarkController = {
       await bookmarkService.deleteBookmark(req.user.id, req.params.id);
       res.json(successResponse(null, '删除书签成功'));
     } catch (error) {
-      error.statusCode = 404;
       next(error);
     }
   },
 
   async importBookmarks(req, res, next) {
     try {
-      const { format, bookmarks, htmlContent, folderId } = req.body;
-      let parsedBookmarks = bookmarks;
-      
+      const { format, bookmarks, htmlContent, folderId } = req.body || {};
+      let parsedBookmarks;
+
       if (format === 'html') {
+        if (typeof htmlContent !== 'string' || !htmlContent.trim()) {
+          throw errorResponse('htmlContent 不能为空', 'VALIDATION_ERROR', 400);
+        }
         parsedBookmarks = bookmarkService.parseHtmlBookmarks(htmlContent);
       } else if (format === 'chrome') {
-        parsedBookmarks = this.parseChromeBookmarks(bookmarks);
+        if (bookmarks === undefined || bookmarks === null) {
+          throw errorResponse('bookmarks 不能为空', 'VALIDATION_ERROR', 400);
+        }
+        parsedBookmarks = bookmarkController.parseChromeBookmarks(bookmarks);
       } else if (format === 'firefox') {
-        parsedBookmarks = this.parseFirefoxBookmarks(bookmarks);
+        if (bookmarks === undefined || bookmarks === null) {
+          throw errorResponse('bookmarks 不能为空', 'VALIDATION_ERROR', 400);
+        }
+        parsedBookmarks = bookmarkController.parseFirefoxBookmarks(bookmarks);
+      } else if (!format || format === 'json' || format === 'native') {
+        if (!Array.isArray(bookmarks)) {
+          throw errorResponse('bookmarks 必须为数组', 'VALIDATION_ERROR', 400);
+        }
+        parsedBookmarks = { bookmarks, folders: [], folderOrderMap: {} };
+      } else {
+        throw errorResponse('不支持的导入格式', 'VALIDATION_ERROR', 400);
       }
 
       const result = await bookmarkService.importBookmarks(req.user.id, parsedBookmarks, folderId);
-      res.json(successResponse({ 
+      res.json(successResponse({
         count: result.bookmarks.length,
-        foldersCreated: result.foldersCreated 
+        foldersCreated: result.foldersCreated
       }, `成功导入 ${result.bookmarks.length} 个书签`));
     } catch (error) {
+      if (error instanceof SyntaxError) {
+        return next(errorResponse('导入文件不是有效的 JSON', 'VALIDATION_ERROR', 400));
+      }
       next(error);
     }
   },
@@ -148,45 +164,105 @@ const bookmarkController = {
   },
 
   parseChromeBookmarks(data) {
+    const root = typeof data === 'string' ? JSON.parse(data) : data;
+    if (!root || typeof root !== 'object' || Array.isArray(root)) {
+      throw errorResponse('Chrome 书签数据格式不正确', 'VALIDATION_ERROR', 400);
+    }
+
     const bookmarks = [];
-    const traverse = (children, folderName = '') => {
-      if (!children) return;
-      children.forEach(item => {
-        if (item.type === 'url') {
+    const folders = [];
+    const folderOrderMap = {};
+    let bookmarkOrder = 0;
+
+    const addFolder = (folderPath) => {
+      if (folderPath && !folders.includes(folderPath)) {
+        folderOrderMap[folderPath] = folders.length;
+        folders.push(folderPath);
+      }
+    };
+
+    const traverse = (children, parentPath = '') => {
+      if (!Array.isArray(children)) return;
+
+      children.forEach((item) => {
+        if (!item || typeof item !== 'object') return;
+
+        if (item.type === 'url' || (typeof item.url === 'string' && !item.children)) {
+          if (typeof item.url !== 'string') return;
           bookmarks.push({
-            title: item.name,
+            title: String(item.name || item.title || item.url).trim() || item.url,
             url: item.url,
-            folderName
+            folderName: parentPath,
+            sortOrder: bookmarkOrder++
           });
-        } else if (item.type === 'folder' && item.children) {
-          traverse(item.children, item.name);
+          return;
+        }
+
+        if (item.children) {
+          const name = String(item.name || item.title || '').replace(/\//g, '-').trim() || '未命名文件夹';
+          const folderPath = parentPath ? `${parentPath}/${name}` : name;
+          addFolder(folderPath);
+          traverse(item.children, folderPath);
         }
       });
     };
-    traverse(data.roots?.bookmark_bar?.children);
-    traverse(data.roots?.other?.children);
-    traverse(data.roots?.synced?.children);
-    return bookmarks;
+
+    Object.values(root.roots || {}).forEach((rootNode) => {
+      if (rootNode && Array.isArray(rootNode.children)) {
+        traverse(rootNode.children);
+      }
+    });
+
+    return { bookmarks, folders, folderOrderMap };
   },
 
   parseFirefoxBookmarks(data) {
+    const root = typeof data === 'string' ? JSON.parse(data) : data;
+    if (!root || typeof root !== 'object' || Array.isArray(root)) {
+      throw errorResponse('Firefox 书签数据格式不正确', 'VALIDATION_ERROR', 400);
+    }
+
     const bookmarks = [];
-    const traverse = (children, folderName = '') => {
-      if (!children) return;
-      children.forEach(item => {
-        if (item.type === 'text/x-moz-place') {
+    const folders = [];
+    const folderOrderMap = {};
+    let bookmarkOrder = 0;
+
+    const addFolder = (folderPath) => {
+      if (folderPath && !folders.includes(folderPath)) {
+        folderOrderMap[folderPath] = folders.length;
+        folders.push(folderPath);
+      }
+    };
+
+    const traverse = (children, parentPath = '') => {
+      if (!Array.isArray(children)) return;
+
+      children.forEach((item) => {
+        if (!item || typeof item !== 'object') return;
+
+        if (item.type === 'text/x-moz-place' || (typeof item.uri === 'string' && !item.children)) {
+          if (typeof item.uri !== 'string') return;
           bookmarks.push({
-            title: item.title,
+            title: String(item.title || item.uri).trim() || item.uri,
             url: item.uri,
-            folderName
+            folderName: parentPath,
+            sortOrder: bookmarkOrder++
           });
-        } else if (item.type === 'text/x-moz-place-container' && item.children) {
-          traverse(item.children, item.title || folderName);
+          return;
+        }
+
+        if (item.children) {
+          const name = String(item.title || item.name || '').replace(/\//g, '-').trim() || '未命名文件夹';
+          const folderPath = parentPath ? `${parentPath}/${name}` : name;
+          addFolder(folderPath);
+          traverse(item.children, folderPath);
         }
       });
     };
-    traverse(data.children);
-    return bookmarks;
+
+    traverse(root.children);
+
+    return { bookmarks, folders, folderOrderMap };
   },
 
   parseEdgeBookmarks(html) {

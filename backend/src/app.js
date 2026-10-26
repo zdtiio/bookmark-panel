@@ -50,13 +50,23 @@ app.use('/api/folders', folderRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/tokens', tokenRoutes);
 
-app.use(errorHandler);
+// 未匹配的 API 路由必须返回 JSON，不能落到前端的 index.html
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    success: false,
+    code: 'NOT_FOUND',
+    message: '接口不存在',
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.use(express.static(path.join(__dirname, '../dist')));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist', 'index.html'));
 });
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 

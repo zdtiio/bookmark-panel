@@ -35,6 +35,10 @@ const errorHandler = (err, req, res, next) => {
     message = '服务器内部错误，请稍后重试';
   }
 
+  if (statusCode >= 500) {
+    console.error(err);
+  }
+
   res.status(statusCode).json({
     success: false,
     code,

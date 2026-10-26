@@ -54,11 +54,13 @@ export const useConfigStore = defineStore('config', () => {
 
   const saveConfig = async (newConfig) => {
     try {
-      await configApi.updateConfig(newConfig);
-      config.value = { ...config.value, ...newConfig };
+      const response = await configApi.updateConfig(newConfig);
+      config.value = { ...config.value, ...(response || newConfig) };
       saveToLocalStorage(config.value);
+      return true;
     } catch (error) {
       console.error('Failed to save config:', error);
+      return false;
     }
   };
 

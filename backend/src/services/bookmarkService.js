@@ -1,5 +1,45 @@
+const { Op } = require('sequelize');
 const Bookmark = require('../models/Bookmark');
 const Folder = require('../models/Folder');
+const { errorResponse } = require('../utils/response');
+
+const BOOKMARK_FIELDS = ['title', 'url', 'description', 'icon', 'folderId', 'sortOrder'];
+
+const normalizeFolderId = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  return value;
+};
+
+const pickBookmarkFields = (data = {}) => {
+  const result = {};
+  BOOKMARK_FIELDS.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(data, field)) {
+      result[field] = data[field];
+    }
+  });
+  if (Object.prototype.hasOwnProperty.call(result, 'folderId')) {
+    result.folderId = normalizeFolderId(result.folderId);
+  }
+  return result;
+};
+
+const folderKey = (folderId) => (folderId === null || folderId === undefined ? 'root' : String(folderId));
+
+const decodeHtmlEntities = (value) => {
+  const named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  return String(value ?? '').replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity) => {
+    const lower = entity.toLowerCase();
+    if (lower.startsWith('#x')) {
+      const code = parseInt(lower.slice(2), 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+    }
+    if (lower.startsWith('#')) {
+      const code = parseInt(lower.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+    }
+    return named[lower] ?? match;
+  });
+};
 
 const bookmarkService = {
   parseHtmlBookmarks(htmlContent) {
@@ -29,7 +69,7 @@ const bookmarkService = {
       
       const h3Match = line.match(/<H3[^>]*>([^<]+)<\/H3>/i);
       if (h3Match) {
-        pendingFolderName = h3Match[1].trim();
+        pendingFolderName = decodeHtmlEntities(h3Match[1]).trim();
         skipNextFolder = defaultTopFolders.includes(pendingFolderName);
         continue;
       }
@@ -52,8 +92,8 @@ const bookmarkService = {
       } else {
         const aMatch = line.match(/<A\s+HREF="([^"]+)"[^>]*>([^<]+)<\/A>/i);
         if (aMatch) {
-          const url = aMatch[1];
-          const title = aMatch[2].trim();
+          const url = decodeHtmlEntities(aMatch[1]).trim();
+          const title = decodeHtmlEntities(aMatch[2]).trim();
           if (url && title && !url.startsWith('javascript:') && !url.startsWith('chrome://')) {
             bookmarks.push({
               title,
@@ -96,145 +136,210 @@ const bookmarkService = {
   },
 
   async createBookmark(userId, data) {
-    if (data.folderId) {
-      const folder = await Folder.findOne({ where: { userId, id: data.folderId } });
+    const payload = pickBookmarkFields(data);
+    if (payload.folderId !== null && payload.folderId !== undefined) {
+      const folder = await Folder.findOne({ where: { userId, id: payload.folderId } });
       if (!folder) {
-        throw new Error('Folder not found');
+        throw errorResponse('文件夹不存在', 'VALIDATION_ERROR', 400);
       }
     }
-    return Bookmark.create({ userId, ...data });
+    return Bookmark.create({ ...payload, userId });
   },
 
   async updateBookmark(userId, id, data) {
     const bookmark = await Bookmark.findOne({ where: { userId, id } });
-    if (!bookmark) throw new Error('Bookmark not found');
-    if (data.folderId) {
-      const folder = await Folder.findOne({ where: { userId, id: data.folderId } });
+    if (!bookmark) throw errorResponse('书签不存在', 'NOT_FOUND', 404);
+
+    const updates = pickBookmarkFields(data);
+    if (updates.folderId !== null && updates.folderId !== undefined) {
+      const folder = await Folder.findOne({ where: { userId, id: updates.folderId } });
       if (!folder) {
-        throw new Error('Folder not found');
+        throw errorResponse('文件夹不存在', 'VALIDATION_ERROR', 400);
       }
     }
-    return bookmark.update(data);
+    if (Object.keys(updates).length === 0) {
+      return bookmark;
+    }
+    return bookmark.update(updates);
   },
 
   async updateBookmarkFolder(userId, id, folderId) {
     const bookmark = await Bookmark.findOne({ where: { userId, id } });
-    if (!bookmark) throw new Error('Bookmark not found');
-    if (folderId) {
-      const folder = await Folder.findOne({ where: { userId, id: folderId } });
+    if (!bookmark) throw errorResponse('书签不存在', 'NOT_FOUND', 404);
+
+    const targetFolderId = normalizeFolderId(folderId);
+    if (targetFolderId !== null) {
+      const folder = await Folder.findOne({ where: { userId, id: targetFolderId } });
       if (!folder) {
-        throw new Error('Folder not found');
+        throw errorResponse('文件夹不存在', 'VALIDATION_ERROR', 400);
       }
     }
-    return bookmark.update({ folderId });
+    return bookmark.update({ folderId: targetFolderId });
   },
 
   async batchUpdateBookmarkFolder(userId, ids, folderId) {
-    if (folderId) {
-      const folder = await Folder.findOne({ where: { userId, id: folderId } });
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return { moved: 0 };
+    }
+
+    const uniqueIds = [...new Set(ids)];
+    const targetFolderId = normalizeFolderId(folderId);
+
+    if (targetFolderId !== null) {
+      const folder = await Folder.findOne({ where: { userId, id: targetFolderId } });
       if (!folder) {
-        throw new Error('Folder not found');
+        throw errorResponse('文件夹不存在', 'VALIDATION_ERROR', 400);
       }
     }
 
-    const sourceFolderId = await Bookmark.findOne({
-      where: { userId, id: ids[0] },
-      attributes: ['folderId']
+    const selectedBookmarks = await Bookmark.findAll({
+      where: { userId, id: { [Op.in]: uniqueIds } },
+      order: [['sortOrder', 'ASC'], ['createdAt', 'ASC']]
     });
 
-    const currentFolderBookmarks = await Bookmark.findAll({
-      where: { userId, folderId: sourceFolderId?.folderId },
+    if (selectedBookmarks.length === 0) {
+      return { moved: 0 };
+    }
+
+    const selectedIds = selectedBookmarks.map((bookmark) => bookmark.id);
+    const sourceFolderIds = [...new Set(selectedBookmarks.map((bookmark) => bookmark.folderId))];
+
+    // 每个来源文件夹都需要重新编号，避免留下空洞或重复顺序
+    for (const sourceFolderId of sourceFolderIds) {
+      const remainingBookmarks = await Bookmark.findAll({
+        where: {
+          userId,
+          folderId: sourceFolderId,
+          id: { [Op.notIn]: selectedIds }
+        },
+        order: [['sortOrder', 'ASC'], ['createdAt', 'ASC']]
+      });
+
+      await Promise.all(remainingBookmarks.map((bookmark, index) => {
+        return Bookmark.update(
+          { sortOrder: index },
+          { where: { userId, id: bookmark.id } }
+        );
+      }));
+    }
+
+    const targetBookmarks = await Bookmark.findAll({
+      where: {
+        userId,
+        folderId: targetFolderId,
+        id: { [Op.notIn]: selectedIds }
+      },
       order: [['sortOrder', 'ASC']]
     });
 
-    const selectedBookmarks = currentFolderBookmarks.filter(b => ids.includes(b.id));
-    const remainingBookmarks = currentFolderBookmarks.filter(b => !ids.includes(b.id));
-
-    const remainingUpdatePromises = remainingBookmarks.map((bookmark, index) => {
-      return Bookmark.update(
-        { sortOrder: index },
-        { where: { userId, id: bookmark.id } }
-      );
-    });
-    await Promise.all(remainingUpdatePromises);
-
-    const targetFolderBookmarks = await Bookmark.findAll({
-      where: { userId, folderId },
-      order: [['sortOrder', 'ASC']]
-    });
-    const maxSortOrder = targetFolderBookmarks.length > 0
-      ? Math.max(...targetFolderBookmarks.map(b => b.sortOrder || 0))
+    let nextSortOrder = targetBookmarks.length > 0
+      ? Math.max(...targetBookmarks.map((bookmark) => bookmark.sortOrder || 0)) + 1
       : 0;
 
-    const targetUpdatePromises = selectedBookmarks.map((bookmark, index) => {
-      return Bookmark.update(
-        { folderId, sortOrder: maxSortOrder + index + 1 },
+    for (const bookmark of selectedBookmarks) {
+      await Bookmark.update(
+        { folderId: targetFolderId, sortOrder: nextSortOrder++ },
         { where: { userId, id: bookmark.id } }
       );
-    });
-    await Promise.all(targetUpdatePromises);
+    }
+
+    return { moved: selectedBookmarks.length };
   },
 
   async updateBookmarkOrder(userId, bookmarks) {
-    const updatePromises = bookmarks.map((bookmark, index) => {
+    if (!Array.isArray(bookmarks)) {
+      throw errorResponse('书签顺序数据格式不正确', 'VALIDATION_ERROR', 400);
+    }
+
+    const validBookmarks = bookmarks.filter((bookmark) => bookmark && bookmark.id !== undefined);
+
+    await Promise.all(validBookmarks.map((bookmark, index) => {
       return Bookmark.update(
         { sortOrder: index },
         { where: { userId, id: bookmark.id } }
       );
-    });
-    await Promise.all(updatePromises);
+    }));
   },
 
   async deleteBookmark(userId, id) {
     const bookmark = await Bookmark.findOne({ where: { userId, id } });
-    if (!bookmark) throw new Error('Bookmark not found');
+    if (!bookmark) throw errorResponse('书签不存在', 'NOT_FOUND', 404);
     return bookmark.destroy();
   },
 
   async importBookmarks(userId, parsedResult, targetFolderId) {
-    const { bookmarks, folders, folderOrderMap } = parsedResult;
-    const createdBookmarks = [];
-    const folderCache = {};
+    const { bookmarks = [], folders = [], folderOrderMap = {} } = parsedResult || {};
+    const rootTargetFolderId = normalizeFolderId(targetFolderId);
 
-    for (const folderPath of folders) {
-      const order = folderOrderMap[folderPath] || 0;
-      await this.createFolderPath(userId, folderPath, targetFolderId, folderCache, order);
-    }
-
-    const folderBookmarkOrder = {};
-    
-    for (const bookmark of bookmarks) {
-      const existing = await Bookmark.findOne({ where: { userId, url: bookmark.url } });
-      if (!existing) {
-        let folderId = targetFolderId;
-
-        if (bookmark.folderName) {
-          const folderPath = bookmark.folderName;
-          if (folderCache[folderPath]) {
-            folderId = folderCache[folderPath];
-          } else {
-            folderId = await this.createFolderPath(userId, folderPath, targetFolderId, folderCache);
-          }
-        }
-
-        const key = folderId || 'root';
-        if (!folderBookmarkOrder[key]) {
-          folderBookmarkOrder[key] = 0;
-        }
-
-        createdBookmarks.push(await Bookmark.create({
-          userId,
-          folderId,
-          title: bookmark.title,
-          url: bookmark.url,
-          description: bookmark.description || '',
-          icon: bookmark.icon || null,
-          sortOrder: folderBookmarkOrder[key]++
-        }));
+    if (rootTargetFolderId !== null) {
+      const folder = await Folder.findOne({ where: { userId, id: rootTargetFolderId } });
+      if (!folder) {
+        throw errorResponse('目标文件夹不存在', 'VALIDATION_ERROR', 400);
       }
     }
 
-    return { bookmarks: createdBookmarks, foldersCreated: folders.length };
+    const folderCache = {};
+    const folderCountBefore = await Folder.count({ where: { userId } });
+    const folderPaths = [...new Set(
+      (Array.isArray(folders) ? folders : []).filter((path) => typeof path === 'string' && path.trim())
+    )];
+
+    for (const folderPath of folderPaths) {
+      const order = folderOrderMap[folderPath] || 0;
+      await this.createFolderPath(userId, folderPath, rootTargetFolderId, folderCache, order);
+    }
+
+    const existingBookmarks = await Bookmark.findAll({
+      where: { userId },
+      attributes: ['folderId', 'sortOrder']
+    });
+    const nextSortOrder = {};
+    existingBookmarks.forEach((bookmark) => {
+      const key = folderKey(bookmark.folderId);
+      nextSortOrder[key] = Math.max(nextSortOrder[key] ?? -1, bookmark.sortOrder || 0);
+    });
+
+    const createdBookmarks = [];
+
+    for (const bookmark of Array.isArray(bookmarks) ? bookmarks : []) {
+      if (!bookmark || typeof bookmark !== 'object') continue;
+
+      const url = typeof bookmark.url === 'string' ? bookmark.url.trim() : '';
+      if (!/^https?:\/\//i.test(url)) continue;
+
+      const existing = await Bookmark.findOne({ where: { userId, url } });
+      if (existing) continue;
+
+      let folderId = rootTargetFolderId;
+      const folderName = typeof bookmark.folderName === 'string' ? bookmark.folderName.trim() : '';
+      if (folderName) {
+        if (folderCache[folderName]) {
+          folderId = folderCache[folderName];
+        } else {
+          folderId = await this.createFolderPath(userId, folderName, rootTargetFolderId, folderCache);
+        }
+      }
+
+      const key = folderKey(folderId);
+      nextSortOrder[key] = (nextSortOrder[key] ?? -1) + 1;
+
+      createdBookmarks.push(await Bookmark.create({
+        userId,
+        folderId,
+        title: (typeof bookmark.title === 'string' ? bookmark.title.trim() : '') || url,
+        url,
+        description: typeof bookmark.description === 'string' ? bookmark.description : '',
+        icon: typeof bookmark.icon === 'string' && bookmark.icon ? bookmark.icon : null,
+        sortOrder: nextSortOrder[key]
+      }));
+    }
+
+    const folderCountAfter = await Folder.count({ where: { userId } });
+
+    return {
+      bookmarks: createdBookmarks,
+      foldersCreated: Math.max(0, folderCountAfter - folderCountBefore)
+    };
   },
 
   async createFolderPath(userId, folderPath, parentId, cache, order = 0) {
@@ -290,16 +395,34 @@ const bookmarkService = {
   },
 
   formatForChrome(bookmarks, folders) {
-    const folderMap = {};
-    folders.forEach(f => {
-      folderMap[f.id] = f.name;
+    const { roots, rootBookmarks } = this.buildFolderTree(folders, bookmarks);
+
+    const bookmarkToNode = (bookmark) => ({
+      type: 'url',
+      name: bookmark.title,
+      url: bookmark.url,
+      date_added: String(this.toMicroseconds(bookmark.createdAt))
+    });
+
+    const folderToNode = (node) => ({
+      type: 'folder',
+      name: node.folder.name,
+      children: [
+        ...node.bookmarks.map(bookmarkToNode),
+        ...node.children.map(folderToNode)
+      ]
     });
 
     return {
       checksum: '',
       roots: {
         bookmark_bar: { children: [] },
-        other: { children: this.groupByFolder(bookmarks, folderMap) },
+        other: {
+          children: [
+            ...rootBookmarks.map(bookmarkToNode),
+            ...roots.map(folderToNode)
+          ]
+        },
         synced: { children: [] }
       },
       version: 1
@@ -307,31 +430,38 @@ const bookmarkService = {
   },
 
   formatForFirefox(bookmarks, folders) {
-    const folderMap = {};
-    folders.forEach(f => {
-      folderMap[f.id] = f.name;
+    const { roots, rootBookmarks } = this.buildFolderTree(folders, bookmarks);
+
+    const bookmarkToNode = (bookmark) => ({
+      title: bookmark.title,
+      type: 'text/x-moz-place',
+      uri: bookmark.url,
+      dateAdded: this.toMicroseconds(bookmark.createdAt)
+    });
+
+    const folderToNode = (node) => ({
+      title: node.folder.name,
+      type: 'text/x-moz-place-container',
+      children: [
+        ...node.bookmarks.map(bookmarkToNode),
+        ...node.children.map(folderToNode)
+      ]
     });
 
     return {
-      title: 'Bookmarks',
+      title: '',
       id: 'root________',
       type: 'text/x-moz-place-container',
-      children: this.groupByFolder(bookmarks, folderMap)
+      children: [
+        ...roots.map(folderToNode),
+        ...rootBookmarks.map(bookmarkToNode)
+      ]
     };
   },
 
   formatForHtml(bookmarks, folders) {
-    const folderMap = {};
-    folders.forEach(f => {
-      folderMap[f.id] = f.name;
-    });
-
-    const bookmarksByFolder = {};
-    bookmarks.forEach(b => {
-      const folderName = folderMap[b.folderId] || '';
-      if (!bookmarksByFolder[folderName]) bookmarksByFolder[folderName] = [];
-      bookmarksByFolder[folderName].push(b);
-    });
+    const { roots, rootBookmarks } = this.buildFolderTree(folders, bookmarks);
+    const now = Math.floor(Date.now() / 1000);
 
     let html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <!-- This is an automatically generated file.
@@ -341,33 +471,31 @@ const bookmarkService = {
 <TITLE>Bookmarks</TITLE>
 <H1>Bookmarks</H1>
 <DL><p>
-    <DT><H3 ADD_DATE="${Math.floor(Date.now() / 1000)}" LAST_MODIFIED="${Math.floor(Date.now() / 1000)}" PERSONAL_TOOLBAR_FOLDER="true">书签栏</H3>
+    <DT><H3 ADD_DATE="${now}" LAST_MODIFIED="${now}" PERSONAL_TOOLBAR_FOLDER="true">书签栏</H3>
     <DL><p>`;
 
-    const addBookmark = (bm, indent = 6) => {
-      const date = bm.createdAt ? Math.floor(bm.createdAt.getTime() / 1000) : Math.floor(Date.now() / 1000);
+    const addBookmark = (bookmark, indent = 6) => {
       const spaces = ' '.repeat(indent);
-      html += `\n${spaces}<DT><A HREF="${bm.url}" ADD_DATE="${date}" LAST_MODIFIED="${date}">${bm.title}</A>`;
+      const date = bookmark.createdAt
+        ? Math.floor(new Date(bookmark.createdAt).getTime() / 1000)
+        : now;
+      html += `\n${spaces}<DT><A HREF="${this.escapeHtml(bookmark.url)}" ADD_DATE="${date}" LAST_MODIFIED="${date}">${this.escapeHtml(bookmark.title)}</A>`;
     };
 
-    const addFolder = (folderName, folderBookmarks, indent = 6) => {
+    const addFolder = (node, indent = 6) => {
       const spaces = ' '.repeat(indent);
-      html += `\n${spaces}<DT><H3 ADD_DATE="${Math.floor(Date.now() / 1000)}" LAST_MODIFIED="${Math.floor(Date.now() / 1000)}">${folderName}</H3>`;
+      const folderDate = node.folder.createdAt
+        ? Math.floor(new Date(node.folder.createdAt).getTime() / 1000)
+        : now;
+      html += `\n${spaces}<DT><H3 ADD_DATE="${folderDate}" LAST_MODIFIED="${folderDate}">${this.escapeHtml(node.folder.name)}</H3>`;
       html += `\n${spaces}<DL><p>`;
-      folderBookmarks.forEach(bm => {
-        addBookmark(bm, indent + 4);
-      });
+      node.bookmarks.forEach((bookmark) => addBookmark(bookmark, indent + 4));
+      node.children.forEach((child) => addFolder(child, indent + 4));
       html += `\n${spaces}</DL><p>`;
     };
 
-    const rootBookmarks = bookmarksByFolder[''] || [];
-    rootBookmarks.forEach(bm => addBookmark(bm));
-
-    delete bookmarksByFolder[''];
-
-    for (const [folderName, folderBookmarks] of Object.entries(bookmarksByFolder)) {
-      addFolder(folderName, folderBookmarks);
-    }
+    rootBookmarks.forEach((bookmark) => addBookmark(bookmark));
+    roots.forEach((node) => addFolder(node));
 
     html += `
     </DL><p>
@@ -375,26 +503,72 @@ const bookmarkService = {
     return html;
   },
 
-  groupByFolder(bookmarks, folderMap) {
-    const groups = {};
-    bookmarks.forEach(b => {
-      const folderName = folderMap[b.folderId] || 'Other';
-      if (!groups[folderName]) groups[folderName] = [];
-      groups[folderName].push({
-        title: b.title,
-        url: b.url,
-        date_added: Math.floor(b.createdAt.getTime() * 1000)
-      });
+  buildFolderTree(folders, bookmarks) {
+    const nodes = new Map();
+    (folders || []).forEach((folder) => {
+      nodes.set(folder.id, { folder, children: [], bookmarks: [] });
     });
 
-    const result = [];
-    for (const [name, items] of Object.entries(groups)) {
-      result.push({
-        title: name,
-        children: items
+    const roots = [];
+    nodes.forEach((node) => {
+      const parent = node.folder.parentId !== null && node.folder.parentId !== undefined
+        ? nodes.get(node.folder.parentId)
+        : null;
+      if (parent) {
+        parent.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    const rootBookmarks = [];
+    (bookmarks || []).forEach((bookmark) => {
+      const node = bookmark.folderId !== null && bookmark.folderId !== undefined
+        ? nodes.get(bookmark.folderId)
+        : null;
+      if (node) {
+        node.bookmarks.push(bookmark);
+      } else {
+        rootBookmarks.push(bookmark);
+      }
+    });
+
+    const sortBookmarks = (list) => {
+      list.sort((a, b) => {
+        const orderDiff = (a.sortOrder || 0) - (b.sortOrder || 0);
+        return orderDiff !== 0 ? orderDiff : String(a.title).localeCompare(String(b.title));
       });
-    }
-    return result;
+    };
+
+    const sortNodes = (list) => {
+      list.sort((a, b) => {
+        const orderDiff = (a.folder.sortOrder || 0) - (b.folder.sortOrder || 0);
+        return orderDiff !== 0 ? orderDiff : String(a.folder.name).localeCompare(String(b.folder.name));
+      });
+      list.forEach((node) => {
+        sortBookmarks(node.bookmarks);
+        sortNodes(node.children);
+      });
+    };
+
+    sortBookmarks(rootBookmarks);
+    sortNodes(roots);
+
+    return { roots, rootBookmarks };
+  },
+
+  toMicroseconds(date) {
+    const timestamp = date ? new Date(date).getTime() : Date.now();
+    return timestamp * 1000;
+  },
+
+  escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 };
 
