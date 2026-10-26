@@ -1,6 +1,6 @@
 # 书签管理面板
 
-一个基于 Node.js 的现代化书签管理系统，支持多用户、跨浏览器书签导入导出、数据备份恢复等功能。整体开发基于TRAE的AI功能和脑子里的idea。
+一个基于 Node.js 的现代化书签管理系统，支持多用户、跨浏览器书签导入导出、数据备份恢复等功能。
 
 ## ✨ 功能特性
 
@@ -11,8 +11,8 @@
 - 支持 Docker 容器化部署
 - 多用户支持，数据完全隔离
 - API Token 认证机制，支持手动轮转
-- 书签图标自动获取和手动上传
-- 内存缓存提升响应速度
+- 书签图标展示，后端提供图标上传接口
+- 内置 NodeCache 缓存实例，可按需扩展
 
 ### 前端面板
 
@@ -28,14 +28,26 @@
 ### 浏览器插件
 
 - 支持 Chrome、Firefox、Edge 浏览器
-- `Ctrl+Shift+S` / `Command+Shift+S` 快捷键快速保存页面
-- 可设置取代默认主页和新标签页
+- `Ctrl+Shift+S` / `Command+Shift+S` 打开预填当前页面的添加书签页
+- 新标签页接管，配置 Token 后可一键进入面板
 - API Token 长期有效，支持轮转
 
 ### 数据管理
 
 - 支持 Chrome (JSON)、Firefox (JSON)、Edge (HTML) 书签格式导入导出
 - 用户数据完整备份恢复
+
+## 📚 项目文档
+
+完整文档位于 [`docs/`](./docs/README.md)：
+
+- [架构说明](./docs/architecture.md)：系统组成、请求链路、认证与缓存策略
+- [功能说明](./docs/features.md)：首页、管理视图、文件夹、搜索与设置
+- [API 参考](./docs/api.md)：接口路径、参数、响应格式与示例
+- [数据模型](./docs/data-model.md)：数据表、索引、关联关系与配置项
+- [本地开发](./docs/development.md)：环境变量、构建命令与排错
+- [部署指南](./docs/deployment.md)：Docker、Compose、反向代理、备份与 CI
+- [浏览器插件](./docs/extension.md)：结构、构建、安装与配置
 
 ## 🛠️ 技术栈
 
@@ -58,13 +70,13 @@
 | 框架     | Vue.js       | 3.x  |
 | UI 库    | Element Plus | 2.x  |
 | 图标     | Lucide Vue   | -    |
-| 构建工具 | Vite         | 6.x  |
+| 构建工具 | Vite         | 5.x  |
 | 状态管理 | Pinia        | -    |
 
 ### 浏览器插件
 
-- Vue 3 + Vite
-- Chrome Extension API（跨浏览器兼容）
+- 原生 JavaScript + Vite 多页面构建
+- Manifest V3，Chrome Extension API（跨浏览器兼容）
 
 ## 📁 项目结构
 
@@ -105,6 +117,8 @@ bookmark-panel/
 ├── docker/                     # Docker 配置
 │   ├── Dockerfile
 │   └── docker-compose.yml
+├── docs/                       # 项目文档
+├── .github/workflows/          # CI：镜像与插件发布
 └── README.md
 ```
 
@@ -183,9 +197,9 @@ docker-compose up -d
 #### 手动构建
 
 ```bash
-cd backend
-docker build -t bookmark-panel .
-docker run -p 3000:3000 -v $(pwd)/database:/app/database bookmark-panel
+# 在仓库根目录执行
+docker build -f docker/Dockerfile -t bookmark-panel .
+docker run -p 3000:3000 -v $(pwd)/database:/app/database -v $(pwd)/uploads:/app/uploads bookmark-panel
 ```
 
 ### 访问地址
@@ -229,10 +243,10 @@ docker run -p 3000:3000 -v $(pwd)/database:/app/database bookmark-panel
 
 | 方法 | 路径                  | 说明         |
 | ---- | --------------------- | ------------ |
-| GET  | `/api/configs`        | 获取用户配置 |
-| PUT  | `/api/configs`        | 更新配置     |
-| GET  | `/api/configs/export` | 导出用户数据 |
-| POST | `/api/configs/import` | 导入用户数据 |
+| GET  | `/api/config`         | 获取用户配置 |
+| PUT  | `/api/config`         | 更新配置     |
+| GET  | `/api/config/export`  | 导出用户数据 |
+| POST | `/api/config/import`  | 导入用户数据 |
 
 ### API Token
 
@@ -250,6 +264,8 @@ docker run -p 3000:3000 -v $(pwd)/database:/app/database bookmark-panel
 - `X-API-Token: <API Token>`：浏览器插件等第三方客户端使用
 
 `POST /api/auth/token-login` 可以用 API Token 直接换取 JWT，浏览器插件通过该接口实现免密进入面板。
+
+更完整的参数、响应格式和示例见 [docs/api.md](./docs/api.md)。
 
 ## 🌐 浏览器插件安装
 
@@ -287,8 +303,8 @@ UPLOAD_PATH=./uploads
 
 - **API URL**: 后端服务地址（如 `http://localhost:3000`）
 - **API Token**: 用户的 API Token（从前端设置页面获取，可在插件设置页点击「测试连接」验证）
-- **取代主页**: 是否将插件设置为浏览器主页
-- **取代新标签页**: 是否将插件设置为新标签页
+- **取代主页**: Firefox 可尝试自动设置；Chrome/Edge 需在浏览器设置中手动设置
+- **取代新标签页**: 保存偏好；新标签页接管由插件清单固定开启
 
 配置好 API URL 和 API Token 后，新标签页 / 插件中的「打开书签面板」会自动携带 Token 登录，无需再输入账号密码。
 
