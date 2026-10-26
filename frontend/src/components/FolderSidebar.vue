@@ -19,11 +19,13 @@
         :level="0"
         :selected-folder-id="selectedFolderId"
         :expanded-folders="expandedFolders"
+        :home-items="homeItems"
         @select="handleSelect"
         @contextmenu="handleContextMenu"
         @toggle-expand="handleToggleExpand"
         @edit="handleEdit"
         @delete="handleDelete"
+        @toggle-home="handleToggleHome"
         @folder-drop="handleDrop"
       />
       
@@ -55,6 +57,10 @@ defineProps({
   collapsed: {
     type: Boolean,
     default: false
+  },
+  homeItems: {
+    type: Array,
+    default: () => []
   }
 });
 
@@ -65,6 +71,7 @@ const emit = defineEmits([
   'toggle-collapse',
   'edit',
   'delete',
+  'toggle-home',
   'folder-drop'
 ]);
 
@@ -86,6 +93,10 @@ const handleEdit = (folder) => {
 
 const handleDelete = (folder) => {
   emit('delete', folder);
+};
+
+const handleToggleHome = (folder) => {
+  emit('toggle-home', folder);
 };
 
 const handleDrop = (dropData) => {

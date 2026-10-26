@@ -47,6 +47,14 @@
         <span v-if="String(folder.id) === String(selectedFolderId)" class="current-folder-badge"></span>
         
         <div class="folder-actions">
+          <button
+            class="action-btn home-btn"
+            :class="{ active: isInHome(folder.id) }"
+            @click.stop="$emit('toggle-home', folder)"
+            :title="isInHome(folder.id) ? '从首页移除' : '添加文件夹到首页'"
+          >
+            <Pin />
+          </button>
           <button 
             class="action-btn edit-btn" 
             @click.stop="$emit('edit', folder)"
@@ -81,11 +89,13 @@
           :level="level + 1"
           :selected-folder-id="selectedFolderId"
           :expanded-folders="expandedFolders"
+          :home-items="homeItems"
           @select="$emit('select', $event)"
           @contextmenu="$emit('contextmenu', $event, child)"
           @toggle-expand="$emit('toggle-expand', $event)"
           @edit="$emit('edit', $event)"
           @delete="$emit('delete', $event)"
+          @toggle-home="$emit('toggle-home', $event)"
           @folder-drop="$emit('folder-drop', $event)"
         />
       </div>
@@ -95,7 +105,7 @@
 
 <script setup>
 import { ref } from 'vue';
-import { Folder, FolderOpen, ChevronDown, ChevronRight, Pencil, Trash2, GripVertical } from 'lucide-vue-next';
+import { Folder, FolderOpen, ChevronDown, ChevronRight, Pencil, Trash2, GripVertical, Pin } from 'lucide-vue-next';
 
 const props = defineProps({
   folder: {
@@ -113,10 +123,20 @@ const props = defineProps({
   expandedFolders: {
     type: Array,
     default: () => []
+  },
+  homeItems: {
+    type: Array,
+    default: () => []
   }
 });
 
-const emit = defineEmits(['select', 'contextmenu', 'toggle-expand', 'edit', 'delete', 'folder-drop']);
+const emit = defineEmits(['select', 'contextmenu', 'toggle-expand', 'edit', 'delete', 'toggle-home', 'folder-drop']);
+
+const isInHome = (id) => {
+  return props.homeItems.some(
+    (item) => item.type === 'folder' && String(item.id) === String(id),
+  );
+};
 
 const isDragging = ref(false);
 const isDragOver = ref(false);
@@ -407,6 +427,24 @@ const handleDrop = (event) => {
 
 .folder-actions .edit-btn svg {
   color: #409eff;
+}
+
+.folder-actions .home-btn {
+  background: rgba(230, 162, 60, 0.2);
+}
+
+.folder-actions .home-btn svg {
+  color: #e6a23c;
+}
+
+.folder-actions .home-btn:hover,
+.folder-actions .home-btn.active {
+  background: rgba(230, 162, 60, 0.45);
+}
+
+.folder-actions .home-btn:hover svg,
+.folder-actions .home-btn.active svg {
+  color: #fff;
 }
 
 .folder-actions .edit-btn:hover {

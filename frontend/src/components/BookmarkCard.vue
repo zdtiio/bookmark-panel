@@ -49,19 +49,29 @@
       </CustomTooltip>
       <p class="bookmark-url">{{ bookmark.url }}</p>
     </div>
-    <div v-if="isEditMode" class="bookmark-actions">
-      <button class="action-btn edit-btn" @click.stop="$emit('edit', bookmark)">
-        <Pencil />
+    <div v-if="!isSearchResult" class="bookmark-actions">
+      <button
+        class="action-btn home-btn"
+        :class="{ active: isInHome }"
+        :title="isInHome ? '从首页移除' : '添加到首页'"
+        @click.stop="$emit('toggle-home', bookmark)"
+      >
+        <Pin />
       </button>
-      <button class="action-btn delete-btn" @click.stop="$emit('delete', bookmark)">
-        <Trash2 />
-      </button>
+      <template v-if="isEditMode">
+        <button class="action-btn edit-btn" @click.stop="$emit('edit', bookmark)">
+          <Pencil />
+        </button>
+        <button class="action-btn delete-btn" @click.stop="$emit('delete', bookmark)">
+          <Trash2 />
+        </button>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { GripVertical, Pencil, Trash2, Check } from 'lucide-vue-next';
+import { GripVertical, Pencil, Trash2, Check, Pin } from 'lucide-vue-next';
 import CustomTooltip from './CustomTooltip.vue';
 
 const props = defineProps({
@@ -96,6 +106,10 @@ const props = defineProps({
   isSearchResult: {
     type: Boolean,
     default: false
+  },
+  isInHome: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -110,7 +124,8 @@ const emit = defineEmits([
   'touchstart',
   'touchmove',
   'touchend',
-  'select'
+  'select',
+  'toggle-home'
 ]);
 
 const handleClick = () => {
@@ -361,6 +376,26 @@ const getTextIconStyle = (title) => {
 .delete-btn:hover {
   background: rgba(245, 108, 108, 0.4);
   box-shadow: 0 2px 8px rgba(245, 108, 108, 0.3);
+}
+
+.home-btn {
+  background: rgba(230, 162, 60, 0.18);
+}
+
+.home-btn svg {
+  color: #e6a23c;
+}
+
+.home-btn:hover {
+  background: rgba(230, 162, 60, 0.35);
+}
+
+.home-btn.active {
+  background: rgba(230, 162, 60, 0.45);
+}
+
+.home-btn.active svg {
+  color: #fff;
 }
 
 .bookmark-card.drop-before {

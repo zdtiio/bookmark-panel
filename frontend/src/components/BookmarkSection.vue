@@ -8,10 +8,10 @@
       <div v-else class="folder-breadcrumb">
         <div 
           v-for="(item, index) in currentFolderPath" 
-          :key="item.id"
+          :key="item.id ?? 'root'"
           class="breadcrumb-item"
           :class="{ 'active': index === currentFolderPath.length - 1 }"
-          @click="item.id !== null && $emit('select-folder', item.id)"
+          @click="$emit('select-folder', item.id)"
         >
           <Folder v-if="index === 0" class="folder-icon" />
           <ChevronRight v-else class="chevron-icon" />
@@ -97,6 +97,14 @@
               <p>{{ subFolderCount(folder) }} 个子文件夹</p>
             </div>
             <button
+              class="home-folder-btn"
+              :class="{ active: isHomeFolder(folder.id) }"
+              :title="isHomeFolder(folder.id) ? '从首页移除' : '添加文件夹到首页'"
+              @click.stop="$emit('toggle-home-folder', folder)"
+            >
+              <Pin />
+            </button>
+            <button
               class="open-folder-btn"
               title="打开文件夹"
               @click.stop="$emit('subfolder-open', folder)"
@@ -137,9 +145,11 @@
           :drop-target-index="isSearchResult ? -1 : dropTargetIndex"
           :is-selected="selectedIds.includes(bookmark.id)"
           :is-search-result="isSearchResult"
+          :is-in-home="isHomeBookmark(bookmark.id)"
           @click="$emit('open-bookmark', bookmark)"
           @edit="$emit('edit-bookmark', bookmark)"
           @delete="$emit('delete-bookmark', bookmark)"
+          @toggle-home="$emit('toggle-home', $event)"
           @select="$emit('select-bookmark', $event)"
           @dragstart="!isSearchResult && $emit('bookmark-dragstart', $event, bookmark)"
           @dragend="!isSearchResult && $emit('bookmark-dragend')"
@@ -156,7 +166,7 @@
 
 <script setup>
 import { computed, ref } from 'vue';
-import { Folder, FolderOpen, ChevronRight, Pencil, Bookmark, BookmarkMinus, Check, Move, Trash2, Search } from 'lucide-vue-next';
+import { Folder, FolderOpen, ChevronRight, Pencil, Bookmark, BookmarkMinus, Check, Move, Trash2, Search, Pin } from 'lucide-vue-next';
 import BookmarkCard from './BookmarkCard.vue';
 
 const props = defineProps({
@@ -215,6 +225,10 @@ const props = defineProps({
   isSearchResult: {
     type: Boolean,
     default: false
+  },
+  homeItems: {
+    type: Array,
+    default: () => []
   }
 });
 
@@ -248,8 +262,22 @@ const emit = defineEmits([
   'bookmark-drop',
   'bookmark-touchstart',
   'bookmark-touchmove',
-  'bookmark-touchend'
+  'bookmark-touchend',
+  'toggle-home',
+  'toggle-home-folder'
 ]);
+
+const isHomeBookmark = (id) => {
+  return props.homeItems.some(
+    (item) => item.type === 'bookmark' && String(item.id) === String(id),
+  );
+};
+
+const isHomeFolder = (id) => {
+  return props.homeItems.some(
+    (item) => item.type === 'folder' && String(item.id) === String(id),
+  );
+};
 
 const subFolderCount = (folder) => {
   return props.allFolders.filter(
@@ -559,6 +587,42 @@ const handleFolderDblClick = (folder) => {
   transition: all 0.2s ease;
 }
 
+.home-folder-btn {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(230, 162, 60, 0.18);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.folder-card:hover .home-folder-btn {
+  opacity: 1;
+}
+
+.home-folder-btn svg {
+  width: 15px;
+  height: 15px;
+  color: #e6a23c;
+}
+
+.home-folder-btn:hover,
+.home-folder-btn.active {
+  background: rgba(230, 162, 60, 0.45);
+}
+
+.home-folder-btn.active svg,
+.home-folder-btn:hover svg {
+  color: #fff;
+}
+
 .folder-card:hover .open-folder-btn {
   opacity: 1;
 }
@@ -739,6 +803,10 @@ const handleFolderDblClick = (folder) => {
   }
 
   .open-folder-btn {
+    opacity: 1;
+  }
+
+  .home-folder-btn {
     opacity: 1;
   }
 

@@ -20,6 +20,22 @@
       </div>
     </div>
     <div class="header-right">
+      <button
+        class="header-btn nav-btn"
+        :class="{ active: activeView === 'home' }"
+        @click="$emit('switch-view', 'home')"
+        title="首页"
+      >
+        <Home />
+      </button>
+      <button
+        class="header-btn nav-btn"
+        :class="{ active: activeView === 'manage' }"
+        @click="$emit('switch-view', 'manage')"
+        title="书签管理"
+      >
+        <LayoutGrid />
+      </button>
       <button class="header-btn add-btn" @click="$emit('add-bookmark')" title="添加书签">
         <Plus />
       </button>
@@ -35,11 +51,18 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { Plus, Settings, LogOut } from 'lucide-vue-next';
+import { Plus, Settings, LogOut, Home, LayoutGrid } from 'lucide-vue-next';
 import { useConfigStore } from '../stores/config';
 import SearchBar from './SearchBar.vue';
 
-const emit = defineEmits(['add-bookmark', 'settings', 'logout', 'search', 'search-clear']);
+defineProps({
+  activeView: {
+    type: String,
+    default: 'home'
+  }
+});
+
+const emit = defineEmits(['add-bookmark', 'settings', 'logout', 'search', 'search-clear', 'switch-view']);
 
 const configStore = useConfigStore();
 const config = computed(() => configStore.config);
@@ -171,6 +194,15 @@ onUnmounted(() => {
 
 .header-btn:active {
   transform: translateY(0);
+}
+
+.nav-btn.active {
+  background: rgba(64, 158, 255, 0.35);
+  border: 1px solid rgba(64, 158, 255, 0.55);
+}
+
+.nav-btn.active svg {
+  color: #fff;
 }
 
 .add-btn {

@@ -13,7 +13,8 @@ export const useConfigStore = defineStore('config', () => {
     backgroundColor: '#1a1a2e',
     backgroundType: 'color',
     backgroundImage: '',
-    defaultFolderId: null
+    defaultFolderId: null,
+    homeItems: []
   });
 
   const saveToLocalStorage = (configData) => {

@@ -4,6 +4,8 @@
 
     <div v-else class="user-view">
       <UserHeader
+        :active-view="activeView"
+        @switch-view="switchView"
         @add-bookmark="showAddBookmark = true"
         @settings="showSettings = true"
         @logout="handleLogout"
@@ -11,7 +13,21 @@
         @search-clear="handleSearchClear"
       />
 
+      <HomeBoard
+        v-if="activeView === 'home'"
+        :home-items="homeItems"
+        :bookmarks="bookmarks"
+        :folders="folders"
+        :show-icons="config.showIcons"
+        @open-bookmark="openHomeBookmark"
+        @open-folder="openHomeFolder"
+        @remove="removeHomeItem"
+        @reorder="reorderHomeItems"
+        @manage="switchView('manage')"
+      />
+
       <main
+        v-else
         class="main-content"
         :class="{ 'sidebar-hidden': sidebarCollapsed || !config.showFolders }"
       >
@@ -21,11 +37,13 @@
           :selected-folder-id="selectedFolderId"
           :expanded-folders="expandedFolders"
           :collapsed="sidebarCollapsed"
+          :home-items="homeItems"
           @select="selectFolder"
           @add-folder="handleAddFolder"
           @toggle-expand="toggleFolderExpand"
           @edit="editFolder"
           @delete="handleFolderDelete"
+          @toggle-home="toggleFolderHome"
           @folder-drop="handleFolderDrop"
           @toggle-collapse="toggleSidebar"
         />
@@ -54,6 +72,7 @@
           :is-edit-mode="isEditMode"
           :show-icons="config.showIcons"
           :is-mobile="isMobile"
+          :home-items="homeItems"
           :dragging-id="draggingBookmark?.id"
           :drop-target-index="dropTargetIndex"
           :selected-ids="selectedBookmarkIds"
@@ -70,6 +89,8 @@
           @open-bookmark="openBookmark"
           @edit-bookmark="editBookmark"
           @delete-bookmark="deleteBookmark"
+          @toggle-home="toggleBookmarkHome"
+          @toggle-home-folder="toggleFolderHome"
           @select-bookmark="handleSelectBookmark"
           @toggle-select-all="handleToggleSelectAll"
           @batch-move="handleBatchMove"
@@ -154,6 +175,7 @@ import { SidebarOpen } from "lucide-vue-next";
 
 import GuestView from "../components/GuestView.vue";
 import UserHeader from "../components/UserHeader.vue";
+import HomeBoard from "../components/HomeBoard.vue";
 import FolderSidebar from "../components/FolderSidebar.vue";
 import BookmarkSection from "../components/BookmarkSection.vue";
 import AddBookmarkModal from "../components/AddBookmarkModal.vue";
@@ -172,12 +194,17 @@ const bookmarks = computed(() => bookmarkStore.bookmarks);
 const folders = computed(() => bookmarkStore.folders);
 
 const selectedFolderId = ref(null);
+const activeView = ref("home");
 const isEditMode = ref(false);
 const draggingBookmark = ref(null);
 const dropTargetIndex = ref(-1);
 const expandedFolders = ref([]);
-const sidebarCollapsed = ref(window.innerWidth <= 768);
+const sidebarCollapsed = ref(true);
 const currentSearchQuery = ref('');
+
+const homeItems = computed(() =>
+  Array.isArray(config.value.homeItems) ? config.value.homeItems : [],
+);
 
 const draggingSubFolder = ref(null);
 const subFolderDropIndex = ref(-1);
@@ -286,22 +313,69 @@ const moveFolderTree = computed(() => {
 });
 
 const currentFolderPath = computed(() => {
+  const path = [{ id: null, name: "全部书签" }];
   if (selectedFolderId.value === null || selectedFolderId.value === undefined) {
-    return [{ id: null, name: "全部书签" }];
+    return path;
   }
   const folderId = selectedFolderId.value;
-  const path = [];
+  const folderPath = [];
   let currentId = folderId;
   while (currentId) {
     const folder = folders.value.find(
       (f) => String(f.id) === String(currentId),
     );
     if (!folder) break;
-    path.unshift({ id: folder.id, name: folder.name });
+    folderPath.unshift({ id: folder.id, name: folder.name });
     currentId = folder.parentId;
   }
-  return path.length > 0 ? path : [{ id: null, name: "未知文件夹" }];
+  return [...path, ...folderPath];
 });
+
+const switchView = (view) => {
+  activeView.value = view === "manage" ? "manage" : "home";
+};
+
+const openHomeBookmark = (bookmark) => {
+  window.open(bookmark.url, "_blank");
+};
+
+const openHomeFolder = async (folder) => {
+  switchView("manage");
+  await selectFolder(folder.id);
+  revealFolderInTree(folder.id);
+};
+
+const toggleHomeItem = async (type, id) => {
+  const items = [...homeItems.value];
+  const index = items.findIndex(
+    (item) => item.type === type && String(item.id) === String(id),
+  );
+
+  if (index > -1) {
+    items.splice(index, 1);
+    ElMessage.success("已从首页移除");
+  } else {
+    items.push({ type, id });
+    ElMessage.success("已添加到首页");
+  }
+
+  await configStore.saveConfig({ homeItems: items });
+};
+
+const toggleBookmarkHome = (bookmark) => toggleHomeItem("bookmark", bookmark.id);
+const toggleFolderHome = (folder) => toggleHomeItem("folder", folder.id);
+const removeHomeItem = (item) => toggleHomeItem(item.type, item.id);
+
+const reorderHomeItems = async (items) => {
+  await configStore.saveConfig({ homeItems: items });
+};
+
+const removeHomeEntries = async (predicate) => {
+  const nextItems = homeItems.value.filter((item) => !predicate(item));
+  if (nextItems.length !== homeItems.value.length) {
+    await configStore.saveConfig({ homeItems: nextItems });
+  }
+};
 
 const goToLogin = () => {
     emit("navigate", "LoginPage");
@@ -312,6 +386,7 @@ const goToLogin = () => {
   };
 
   const handleSearch = async (query) => {
+    switchView("manage");
     currentSearchQuery.value = query;
     await bookmarkStore.searchBookmarks(query);
   };
@@ -342,16 +417,21 @@ const toggleSidebar = () => {
 };
 
 const selectFolder = async (folderOrId) => {
-  const folderId = typeof folderOrId === "object" ? folderOrId.id : folderOrId;
-  selectedFolderId.value = folderId;
-  localStorage.setItem("selectedFolderId", folderId);
+  const folderId =
+    typeof folderOrId === "object" ? folderOrId?.id ?? null : folderOrId;
+  selectedFolderId.value = folderId ?? null;
+
+  if (folderId === null || folderId === undefined) {
+    localStorage.setItem("selectedFolderId", "root");
+  } else {
+    localStorage.setItem("selectedFolderId", folderId);
+  }
+
   selectedBookmarkIds.value = [];
 
   if (isMobile.value) {
     sidebarCollapsed.value = true;
   }
-
-  await bookmarkStore.loadBookmarksByFolder(folderId);
 };
 
 const revealFolderInTree = (folderId) => {
@@ -418,8 +498,12 @@ const handleFolderDelete = async (folder) => {
       },
     );
     await bookmarkStore.deleteFolder(folder.id);
-    if (selectedFolderId.value === folder.id) {
+    await removeHomeEntries(
+      (item) => item.type === "folder" && String(item.id) === String(folder.id),
+    );
+    if (String(selectedFolderId.value) === String(folder.id)) {
       selectedFolderId.value = null;
+      localStorage.setItem("selectedFolderId", "root");
     }
     ElMessage.success("删除成功");
   } catch (error) {
@@ -653,6 +737,10 @@ const handleBatchDelete = async () => {
     for (const id of selectedBookmarkIds.value) {
       await bookmarkStore.deleteBookmark(id);
     }
+    const deletedIds = new Set(selectedBookmarkIds.value.map((id) => String(id)));
+    await removeHomeEntries(
+      (item) => item.type === "bookmark" && deletedIds.has(String(item.id)),
+    );
     selectedBookmarkIds.value = [];
     ElMessage.success("删除成功");
   } catch (error) {
@@ -880,6 +968,9 @@ const deleteBookmark = async (bookmark) => {
       },
     );
     await bookmarkStore.deleteBookmark(bookmark.id);
+    await removeHomeEntries(
+      (item) => item.type === "bookmark" && String(item.id) === String(bookmark.id),
+    );
     ElMessage.success("删除成功");
   } catch {
     ElMessage.info("已取消删除");
@@ -950,24 +1041,44 @@ const saveFolder = async ({ name, parentId, editingFolder: folderToEdit }) => {
 
 const loadUserData = async () => {
   await configStore.loadConfig();
-  
-  await bookmarkStore.loadFolders();
+
+  await Promise.all([
+    bookmarkStore.loadFolders(),
+    bookmarkStore.loadBookmarks(),
+  ]);
 
   await nextTick(() => {
-    let targetFolderId = localStorage.getItem("selectedFolderId");
-
-    if (!targetFolderId) {
-      targetFolderId = configStore.config.defaultFolderId;
+    const storedValue = localStorage.getItem("selectedFolderId");
+    const hasStoredSelection = storedValue !== null;
+    let storedFolderId = storedValue;
+    if (
+      storedFolderId === "null" ||
+      storedFolderId === "undefined" ||
+      storedFolderId === "root"
+    ) {
+      storedFolderId = null;
     }
 
-    if (!targetFolderId) {
+    let targetFolderId = hasStoredSelection
+      ? storedFolderId
+      : configStore.config.defaultFolderId || null;
+
+    if (
+      targetFolderId &&
+      !folders.value.some((f) => String(f.id) === String(targetFolderId))
+    ) {
+      targetFolderId = null;
+    }
+
+    if (!targetFolderId && !hasStoredSelection) {
       const rootFolder = folders.value.find((f) => !f.parentId);
-      targetFolderId = rootFolder?.id;
+      targetFolderId = rootFolder?.id ?? null;
     }
 
     selectedFolderId.value = targetFolderId;
 
     if (targetFolderId) {
+      localStorage.setItem("selectedFolderId", targetFolderId);
       const parentIds = [];
       let currentId = targetFolderId;
       while (currentId) {
@@ -986,11 +1097,18 @@ const loadUserData = async () => {
           expandedFolders.value.push(parentId);
         }
       });
+    } else {
+      localStorage.setItem("selectedFolderId", "root");
     }
   });
 
-  if (selectedFolderId.value) {
-    await bookmarkStore.loadBookmarksByFolder(selectedFolderId.value);
+  const validHomeItems = homeItems.value.filter((item) =>
+    item.type === "bookmark"
+      ? bookmarks.value.some((b) => String(b.id) === String(item.id))
+      : folders.value.some((f) => String(f.id) === String(item.id)),
+  );
+  if (validHomeItems.length !== homeItems.value.length) {
+    await configStore.saveConfig({ homeItems: validHomeItems });
   }
 };
 
