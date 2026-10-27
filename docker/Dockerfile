@@ -1,5 +1,4 @@
 # 固定到具体补丁版本，避免构建结果随上游浮动，也便于安全审计与回滚。
-# 从 node:20 升级到 Node.js 24.22.1（当前 LTS "Krypton"）。
 FROM node:24.22.1-alpine AS builder
 
 WORKDIR /app/frontend
@@ -12,30 +11,44 @@ COPY frontend/ ./
 
 RUN npm run build
 
-# ---- 后端依赖：在带构建工具的独立阶段编译原生模块 ----
-# bcrypt 与 sqlite3 含原生扩展，预编译包获取失败时会回退到 node-gyp 源码编译。
-# 把构建工具链限制在这一层，最终镜像就不会带上编译工具。
+# ---- 后端依赖 ----
+# bcrypt 与 sqlite3 都含原生扩展（.node 二进制）。
+#
+# 已知问题（Node.js 24 + Alpine）：
+# 1. sqlite3@5.1.7 的安装脚本 `prebuild-install -r napi || node-gyp rebuild` 中，
+#    其依赖的 node-abi 尚不能识别 Node 24 的 N-API 版本，自动探测得到
+#    target=undefined，于是回退到源码编译。
+# 2. 该回退同样失败：node-gyp@8.4.1 依赖 Python 的 distutils 模块，
+#    而 Alpine 的 Python 3.12+ 已移除该模块
+#    （ModuleNotFoundError: No module named 'distutils'）。
+#
+# 因此先用 --ignore-scripts 完成依赖解析（避开失败的回退逻辑），
+# 再分别执行两个原生模块各自的预编译安装命令。
 FROM node:24.22.1-alpine AS deps
-
-# python3 是 node-gyp 的必需依赖；make/g++ 用于编译 C/C++ 扩展。
-# vips 等可选依赖不需要，这里只装最小集合。
-RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
 COPY backend/package*.json ./
 
-# npm ci 保证依赖与 package-lock.json 完全一致（可复现构建）。
-# 允许安装脚本执行，让原生模块完成编译。
-RUN npm ci --omit=dev && npm cache clean --force
+# 第 1 步：安装依赖，跳过安装脚本
+RUN npm ci --omit=dev --ignore-scripts
+
+# 第 2 步：安装原生模块的 N-API 预编译二进制
+#   bcrypt  -> node-pre-gyp 的 napi-v3 包（与 Node 版本无关）
+#   sqlite3 -> prebuild-install 的 napi-v6 包（显式指定，绕过自动探测）
+RUN cd node_modules/bcrypt \
+    && node ../@mapbox/node-pre-gyp/bin/node-pre-gyp install --fallback-to-build \
+    && cd ../sqlite3 \
+    && node ../prebuild-install/bin.js --runtime napi --target 6 \
+    && cd ../.. \
+    && npm cache clean --force
 
 # ---- 最终镜像 ----
 FROM node:24.22.1-alpine
 
 WORKDIR /app
 
-# 原生模块运行时可能依赖 libstdc++（g++ 产物），显式保留；
-# 编译工具（python3/make/g++）留在 deps 阶段，不进入最终镜像。
+# 原生模块运行时需要 libstdc++
 RUN apk add --no-cache libstdc++
 
 COPY --from=deps /app/node_modules ./node_modules
