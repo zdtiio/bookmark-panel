@@ -1,0 +1,40 @@
+# 构建上下文排除项：保持镜像层干净、构建更快，并避免宿主机的
+# 原生模块二进制覆盖容器内编译好的产物（Windows 上的 .node 在 Linux 容器内不可用）。
+
+# 宿主机依赖目录（在容器内由 npm ci 重新安装）
+backend/node_modules
+frontend/node_modules
+extension/node_modules
+
+# 构建产物由镜像内重新生成
+frontend/dist
+extension/dist
+
+# 本地数据库与上传文件不得进入镜像
+backend/database/*.db
+backend/database/*.sqlite
+backend/database/*.sqlite3
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# 环境变量文件可能含密钥
+.env
+.env.*
+!.env.example
+
+# 版本控制、CI 与编辑器
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# 日志与临时文件
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# 本地工具产物
+.acl-recovery
