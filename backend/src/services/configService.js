@@ -3,6 +3,7 @@ const Bookmark = require('../models/Bookmark');
 const Folder = require('../models/Folder');
 const User = require('../models/User');
 const { errorResponse } = require('../utils/response');
+const { sanitizeIcon } = require('./bookmarkService');
 
 const configService = {
   async getConfig(userId) {
@@ -165,10 +166,11 @@ const configService = {
       await Bookmark.create({
         userId,
         folderId,
-        title: (typeof bookmark.title === 'string' ? bookmark.title.trim() : '') || url,
+        title: (typeof bookmark.title === 'string' ? bookmark.title.trim().slice(0, 255) : '') || url,
         url,
-        description: typeof bookmark.description === 'string' ? bookmark.description : '',
-        icon: typeof bookmark.icon === 'string' && bookmark.icon ? bookmark.icon : null,
+        description: typeof bookmark.description === 'string' ? bookmark.description.slice(0, 10000) : '',
+        // 备份文件来自外部，icon 必须过滤，防止 data:/javascript: 伪协议注入前端 <img src>
+        icon: sanitizeIcon(bookmark.icon),
         sortOrder: Number.isFinite(Number(bookmark.sortOrder)) ? Number(bookmark.sortOrder) : 0
       });
     }

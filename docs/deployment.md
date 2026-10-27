@@ -26,10 +26,12 @@ services:
       - ./uploads:/app/uploads
     environment:
       - PORT=3000
-      - JWT_SECRET=your-secret-key-change-in-production
-      - JWT_EXPIRES_IN=7d
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a random value of at least 32 characters}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - NODE_ENV=production
       - DB_PATH=./database/bookmarks.db
       - UPLOAD_PATH=./uploads
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
     restart: unless-stopped
 ```
 
@@ -37,10 +39,12 @@ services:
 
 ```bash
 cd docker
+# 必须先生成强随机密钥，未设置时 compose 会直接拒绝启动
+export JWT_SECRET="$(openssl rand -hex 32)"
 docker compose up -d
 ```
 
-首次部署前请修改 `JWT_SECRET`。也可以使用环境变量指定版本：
+也可以使用环境变量指定镜像版本：
 
 ```bash
 IMAGE_TAG=latest docker compose up -d
@@ -87,8 +91,11 @@ docker run -d \
 Windows PowerShell 示例：
 
 ```powershell
+# 生成强随机密钥（不能用示例值，否则服务拒绝启动）
+$env:JWT_SECRET = -join ((1..64) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
+
 docker run -d --name bookmark-panel -p 3000:3000 `
-  -e JWT_SECRET="please-change-me" `
+  -e JWT_SECRET="$env:JWT_SECRET" `
   -v "${PWD}/data/database:/app/database" `
   -v "${PWD}/data/uploads:/app/uploads" `
   bookmark-panel:local
@@ -98,11 +105,14 @@ docker run -d --name bookmark-panel -p 3000:3000 `
 
 `docker/Dockerfile` 为多阶段构建：
 
-1. `node:20-alpine` 中安装前端依赖并执行 `npm run build`。
-2. 新的 `node:20-alpine` 中安装后端生产依赖。
+1. `node:24.22.1-alpine` 中安装前端依赖并执行 `npm run build`。
+2. 新的 `node:24.22.1-alpine` 中安装后端生产依赖（`npm ci --omit=dev`）。
 3. 复制后端源码。
 4. 把前端 `dist` 复制到 `/app/dist`。
-5. 创建 `database`、`uploads` 目录，暴露 `3000`，以 `npm start` 启动。
+5. 创建 `database`、`uploads` 目录并授权给 `node` 用户。
+6. 暴露 `3000`，以非 root 用户 `node` 执行 `npm start`。
+
+> 基础镜像固定到 `node:24.22.1-alpine`（Node.js 24 LTS）。固定补丁版本可保证构建可复现，并避免使用已停止安全更新的 Node 版本。升级时请同步修改本文件、`Dockerfile` 与各 `package.json` 的 `engines` 字段。
 
 ## 4. 反向代理
 
@@ -141,11 +151,14 @@ server {
 | 变量 | 必填 | 默认 | 说明 |
 | --- | --- | --- | --- |
 | `PORT` | 否 | `3000` | 容器内监听端口 |
-| `JWT_SECRET` | 是 | 无 | JWT 签名密钥，建议 32 字节以上随机值 |
+| `JWT_SECRET` | 是 | 无 | JWT 签名密钥，**至少 32 位随机字符**；使用示例值或不足 32 位时服务拒绝启动 |
 | `JWT_EXPIRES_IN` | 否 | `7d` | JWT 有效期 |
 | `DB_PATH` | 否 | `./database/bookmarks.db` | SQLite 路径 |
 | `UPLOAD_PATH` | 否 | `./uploads` | 图标目录 |
 | `NODE_ENV` | 否 | - | 生产建议设为 `production` |
+| `CORS_ORIGINS` | 否 | 空 | 允许跨域访问的来源，逗号分隔（含协议，如 `https://panel.example.com`）。留空则仅允许同源；插件与命令行请求不受影响 |
+| `TRUST_PROXY` | 否 | `false` | 仅在部署于反向代理之后时设为 `true`，否则 `X-Forwarded-For` 可被伪造以绕过登录限流 |
+| `ENABLE_HSTS` | 否 | `false` | 仅在 HTTPS 部署时设为 `true` |
 
 生成密钥：
 
@@ -245,10 +258,31 @@ GET /api/config/export
 
 ## 9. 安全清单
 
-- 修改默认 `JWT_SECRET`，不要使用 Compose 示例值。
+### 9.1 已内置的防护（v1.0.11 起）
+
+- **JWT 密钥强制校验**：`JWT_SECRET` 缺失、少于 32 位或使用示例值时服务**拒绝启动**；签发与校验均固定 `HS256`，`alg:none` 与其它密钥签发的 Token 一律拒绝。
+- **登录/注册限流**：登录 15 分钟 10 次、注册 1 小时 10 次、Token 兑换 15 分钟 20 次，超出返回 `429`。
+- **注册服务端校验**：用户名、邮箱格式与密码强度（≥8 位，含字母与数字）均在后端校验。
+- **图标上传加固**：仅接受 PNG/JPEG/GIF/WebP，按文件魔数判定真实类型（不信任客户端 MIME），文件名由服务端生成。**SVG 上传已被禁止**。
+- **上传目录不可执行**：`/uploads` 下的非图片扩展名（含历史遗留的 `.svg`）以 `text/plain` + `Content-Disposition: attachment` 返回，并统一附加 `CSP: default-src 'none'; sandbox` 与 `nosniff`。
+- **`icon` 字段白名单**：书签创建、更新、导入及整库导入时会过滤 `data:`/`javascript:` 等伪协议，仅放行 `/uploads/` 路径与 http(s) 地址。
+- **全局安全响应头**：`CSP`、`X-Content-Type-Options`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer`、`Permissions-Policy` 等。
+- **CORS 白名单**：不再全开放，仅放行 `CORS_ORIGINS` 中列出的来源。
+
+### 9.2 仍需运维注意
+
 - 使用 HTTPS，避免 JWT/API Token 在明文链路传输。
 - 限制数据库和上传目录的文件权限。
-- 服务默认开启 CORS（`cors()` 允许所有来源）。如只供自己的前端使用，建议在反向代理层限制来源或改造 CORS 配置。
 - 注册接口默认开放，没有邀请码或邮箱验证；公网部署请评估是否需要关闭注册。
-- 当前没有登录限流、验证码、Helmet 等防护，公网暴露时建议在网关层增加限流和 WAF。
+- 若部署于反向代理之后，设置 `TRUST_PROXY=true`，否则限流基于代理 IP 会误伤或被绕过（默认 `false`）。
+- 插件通过 URL hash 传递 API Token 换取登录态。请提醒用户不要在浏览器历史或分享链接中保留该地址；API Token 支持轮转。
 - API Token 明文只显示一次，遗失后请轮转，不要通过聊天工具长期传递。
+
+### 9.3 安全回归测试
+
+```bash
+cd backend
+npm run test:security
+```
+
+覆盖上传型 XSS、`icon` 注入、JWT 伪造、限流、CORS、响应头、路径穿越与多租户隔离等 21 项用例。

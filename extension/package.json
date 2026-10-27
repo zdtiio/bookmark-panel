@@ -1,7 +1,10 @@
 {
   "name": "bookmark-panel-extension",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "type": "module",
+  "engines": {
+    "node": ">=24.22.1"
+  },
   "scripts": {
     "dev": "vite",
     "build": "npm run build:chrome && npm run build:firefox",

@@ -194,9 +194,15 @@ const handleDragEnd = () => {
   dropIndex.value = -1;
 };
 
+// 仅在确认是安全位图时才允许 data: 伪协议；
+// data:image/svg+xml 可以内嵌脚本，必须排除（纵深防御，后端已过滤）。
+const SAFE_DATA_IMAGE = /^data:image\/(png|jpe?g|gif|webp|bmp|x-icon|avif);/i;
+
 const getIconUrl = (icon) => {
-  if (!icon) return '';
-  if (/^(https?:|data:|blob:)/i.test(icon)) return icon;
+  if (!icon || typeof icon !== 'string') return '';
+  if (/^https?:\/\//i.test(icon)) return icon;
+  if (/^data:/i.test(icon)) return SAFE_DATA_IMAGE.test(icon) ? icon : '';
+  if (/^(javascript|vbscript|file):/i.test(icon)) return '';
   return icon.startsWith('/') ? icon : `/${icon}`;
 };
 

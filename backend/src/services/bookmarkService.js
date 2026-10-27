@@ -10,6 +10,43 @@ const normalizeFolderId = (value) => {
   return value;
 };
 
+/**
+ * 校验并归一化图标字段。
+ *
+ * icon 会被前端直接渲染为 <img src>，若不校验可存储 `data:image/svg+xml;...<script>`
+ * 之类的载荷，构成存储型 XSS。这里只接受：
+ *  - 本站上传路径 /uploads/<安全文件名>
+ *  - http(s) 绝对地址
+ * 其余一律置空。
+ */
+const SAFE_ICON_PATH = /^\/uploads\/[A-Za-z0-9._-]+\.(png|jpe?g|gif|webp|ico|bmp|avif)$/i;
+
+const sanitizeIcon = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== 'string') return null;
+
+  const icon = value.trim();
+  if (!icon) return null;
+  if (icon.length > 512) return null;
+
+  if (SAFE_ICON_PATH.test(icon)) return icon;
+
+  // 仅允许 http(s) 图片地址，绝不允许 javascript:/data:/vbscript: 等伪协议
+  if (/^https?:\/\//i.test(icon)) {
+    try {
+      const parsed = new URL(icon);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.toString();
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};
+
 const pickBookmarkFields = (data = {}) => {
   const result = {};
   BOOKMARK_FIELDS.forEach((field) => {
@@ -19,6 +56,18 @@ const pickBookmarkFields = (data = {}) => {
   });
   if (Object.prototype.hasOwnProperty.call(result, 'folderId')) {
     result.folderId = normalizeFolderId(result.folderId);
+  }
+  if (Object.prototype.hasOwnProperty.call(result, 'icon')) {
+    result.icon = sanitizeIcon(result.icon);
+  }
+  if (typeof result.title === 'string') {
+    result.title = result.title.trim().slice(0, 255);
+  }
+  if (typeof result.url === 'string') {
+    result.url = result.url.trim();
+  }
+  if (typeof result.description === 'string') {
+    result.description = result.description.slice(0, 10000);
   }
   return result;
 };
@@ -326,10 +375,11 @@ const bookmarkService = {
       createdBookmarks.push(await Bookmark.create({
         userId,
         folderId,
-        title: (typeof bookmark.title === 'string' ? bookmark.title.trim() : '') || url,
+        title: (typeof bookmark.title === 'string' ? bookmark.title.trim().slice(0, 255) : '') || url,
         url,
-        description: typeof bookmark.description === 'string' ? bookmark.description : '',
-        icon: typeof bookmark.icon === 'string' && bookmark.icon ? bookmark.icon : null,
+        description: typeof bookmark.description === 'string' ? bookmark.description.slice(0, 10000) : '',
+        // 导入内容来自外部文件，icon 必须同样经过白名单校验，否则会成为 XSS 注入点
+        icon: sanitizeIcon(bookmark.icon),
         sortOrder: nextSortOrder[key]
       }));
     }
@@ -573,3 +623,5 @@ const bookmarkService = {
 };
 
 module.exports = bookmarkService;
+module.exports.sanitizeIcon = sanitizeIcon;
+module.exports.pickBookmarkFields = pickBookmarkFields;

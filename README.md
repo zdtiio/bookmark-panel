@@ -6,7 +6,7 @@
 
 ### 后端服务
 
-- 基于 Node.js 20 + Express 4.x 构建
+- 基于 Node.js 24 + Express 4.x 构建
 - SQLite 嵌入式数据库，无需额外服务
 - 支持 Docker 容器化部署
 - 多用户支持，数据完全隔离
@@ -55,7 +55,7 @@
 
 | 分类     | 技术         | 版本 |
 | -------- | ------------ | ---- |
-| 语言     | Node.js      | 20.x |
+| 语言     | Node.js      | 24.22.1 LTS |
 | 框架     | Express      | 4.x  |
 | ORM      | Sequelize    | 6.x  |
 | 数据库   | SQLite       | 3.x  |
@@ -126,7 +126,7 @@ bookmark-panel/
 
 ### 环境要求
 
-- Node.js >= 20.0.0
+- Node.js >= 24.22.1
 - npm >= 10.0.0
 
 ### 本地开发

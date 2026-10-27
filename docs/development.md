@@ -2,8 +2,8 @@
 
 ## 1. 环境要求
 
-- Node.js >= 20
-- npm >= 10
+- Node.js >= 24.22.1（与 Docker 镜像及 CI 保持一致）
+- npm >= 11
 - 可编译/加载 SQLite 原生模块的环境（`sqlite3` 提供预编译包，必要时需安装构建工具）
 - 浏览器：Chrome / Edge / Firefox（调试插件时）
 

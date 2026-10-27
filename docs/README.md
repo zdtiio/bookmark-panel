@@ -16,7 +16,7 @@
 
 ## 项目速览
 
-- **后端**：Node.js 20 + Express 4 + Sequelize 6 + SQLite
+- **后端**：Node.js 24.22.1 LTS + Express 4 + Sequelize 6 + SQLite
 - **前端**：Vue 3 + Element Plus + Pinia + Vite 5
 - **插件**：Manifest V3，Chrome / Edge / Firefox 共用一套源码
 - **默认端口**：后端 `3000`，前端开发服务器 `5173`
