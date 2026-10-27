@@ -372,10 +372,12 @@ const reorderHomeItems = async (items) => {
   await configStore.saveConfig({ homeItems: items });
 };
 
-const removeHomeEntries = async (predicate) => {
+// 删除书签 / 文件夹后同步本地首页布局。
+// 持久化清理由后端在删除接口内完成（同一事务），这里不再额外请求配置接口。
+const removeHomeEntries = (predicate) => {
   const nextItems = homeItems.value.filter((item) => !predicate(item));
   if (nextItems.length !== homeItems.value.length) {
-    await configStore.saveConfig({ homeItems: nextItems });
+    configStore.setHomeItems(nextItems);
   }
 };
 
@@ -500,7 +502,7 @@ const handleFolderDelete = async (folder) => {
       },
     );
     await bookmarkStore.deleteFolder(folder.id);
-    await removeHomeEntries(
+    removeHomeEntries(
       (item) => item.type === "folder" && String(item.id) === String(folder.id),
     );
     if (String(selectedFolderId.value) === String(folder.id)) {
@@ -744,7 +746,7 @@ const handleBatchDelete = async () => {
       await bookmarkStore.deleteBookmark(id);
     }
     const deletedIds = new Set(selectedBookmarkIds.value.map((id) => String(id)));
-    await removeHomeEntries(
+    removeHomeEntries(
       (item) => item.type === "bookmark" && deletedIds.has(String(item.id)),
     );
     selectedBookmarkIds.value = [];
@@ -979,7 +981,7 @@ const deleteBookmark = async (bookmark) => {
       },
     );
     await bookmarkStore.deleteBookmark(bookmark.id);
-    await removeHomeEntries(
+    removeHomeEntries(
       (item) => item.type === "bookmark" && String(item.id) === String(bookmark.id),
     );
     ElMessage.success("删除成功");
@@ -1121,14 +1123,14 @@ const loadUserData = async () => {
     }
   });
 
-  const validHomeItems = homeItems.value.filter((item) =>
-    item.type === "bookmark"
-      ? bookmarks.value.some((b) => String(b.id) === String(item.id))
-      : folders.value.some((f) => String(f.id) === String(item.id)),
-  );
-  if (validHomeItems.length !== homeItems.value.length) {
-    await configStore.saveConfig({ homeItems: validHomeItems });
-  }
+  // 注意：这里曾有一段「用全量书签/文件夹列表反推 homeItems 中哪些引用失效，
+  // 然后写回配置」的清理逻辑。它存在两个问题：
+  //   1. 书签/文件夹加载失败时数组为空，会把所有引用误判为失效，进而把
+  //      homeItems 在数据库中清空（表现为「一有错误首页就被清空」）；
+  //   2. 在读取数据的流程里做持久化写入，职责错位。
+  // 现在引用清理由后端在删除书签/文件夹时于同一事务内完成，
+  // 首页渲染（HomeBoard 的 resolvedItems）也会自动过滤失效引用，
+  // 因此这段逻辑已移除，不再需要。
 };
 
 onMounted(() => {

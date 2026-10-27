@@ -1,6 +1,8 @@
 const { Op } = require('sequelize');
 const Bookmark = require('../models/Bookmark');
 const Folder = require('../models/Folder');
+const sequelize = require('../config/database');
+const homeItemsService = require('./homeItemsService');
 const { errorResponse } = require('../utils/response');
 
 const BOOKMARK_FIELDS = ['title', 'url', 'description', 'icon', 'folderId', 'sortOrder'];
@@ -313,7 +315,13 @@ const bookmarkService = {
   async deleteBookmark(userId, id) {
     const bookmark = await Bookmark.findOne({ where: { userId, id } });
     if (!bookmark) throw errorResponse('书签不存在', 'NOT_FOUND', 404);
-    return bookmark.destroy();
+
+    // 删除书签与清理首页引用放在同一事务，避免留下指向已删除书签的脏数据。
+    // 一致性由后端保证，前端无需再额外发一次配置更新请求。
+    return sequelize.transaction(async (transaction) => {
+      await bookmark.destroy({ transaction });
+      await homeItemsService.removeReferences(userId, 'bookmark', [bookmark.id], transaction);
+    });
   },
 
   async importBookmarks(userId, parsedResult, targetFolderId) {

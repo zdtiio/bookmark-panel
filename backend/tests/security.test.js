@@ -399,6 +399,106 @@ const uploadIcon = (server, { filename, contentType, content, token }) => {
       assert.doesNotThrow(() => jwt.verify(t, process.env.JWT_SECRET, { algorithms: ['HS256'] }));
       process.env.JWT_EXPIRES_IN = original;
     });
+
+    // ============ 7. 首页布局（homeItems）一致性 ============
+    console.log('\n[7] 首页布局一致性');
+
+    const configService = require('../src/services/configService');
+    const folderService = require('../src/services/folderService');
+
+    const getHomeItems = async (uid) => {
+      const v = await configService.getConfigByKey(uid, 'homeItems');
+      return Array.isArray(v) ? v : [];
+    };
+
+    await test('删除书签后，后端自动清理 homeItems 中的引用', async () => {
+      const u = await User.create({
+        username: 'homeuser1', email: 'home1@example.com', password: 'Passw0rd123'
+      });
+      const bm = await bookmarkService.createBookmark(u.id, {
+        title: 'keep', url: 'https://example.com/keep'
+      });
+
+      await configService.setConfig(u.id, 'homeItems', [
+        { type: 'bookmark', id: bm.id },
+        { type: 'bookmark', id: 999999 }
+      ]);
+      assert.strictEqual((await getHomeItems(u.id)).length, 2);
+
+      await bookmarkService.deleteBookmark(u.id, bm.id);
+
+      const remaining = await getHomeItems(u.id);
+      assert.strictEqual(remaining.length, 1, '应只移除被删除书签的引用');
+      assert.strictEqual(String(remaining[0].id), '999999');
+    });
+
+    await test('删除文件夹后，后端自动清理 homeItems 中的引用', async () => {
+      const u = await User.create({
+        username: 'homeuser2', email: 'home2@example.com', password: 'Passw0rd123'
+      });
+      const folder = await folderService.createFolder(u.id, '待删文件夹');
+
+      await configService.setConfig(u.id, 'homeItems', [
+        { type: 'folder', id: folder.id },
+        { type: 'bookmark', id: 12345 }
+      ]);
+
+      await folderService.deleteFolder(u.id, folder.id);
+
+      const remaining = await getHomeItems(u.id);
+      assert.strictEqual(remaining.length, 1, '文件夹引用应被移除，书签引用应保留');
+      assert.strictEqual(remaining[0].type, 'bookmark');
+    });
+
+    await test('清理只影响目标 id，不影响其他用户与类型', async () => {
+      const ua = await User.create({
+        username: 'homeA', email: 'homeA@example.com', password: 'Passw0rd123'
+      });
+      const ub = await User.create({
+        username: 'homeB', email: 'homeB@example.com', password: 'Passw0rd123'
+      });
+
+      const ba = await bookmarkService.createBookmark(ua.id, {
+        title: 'a', url: 'https://example.com/a'
+      });
+      const bb = await bookmarkService.createBookmark(ub.id, {
+        title: 'b', url: 'https://example.com/b'
+      });
+
+      await configService.setConfig(ua.id, 'homeItems', [{ type: 'bookmark', id: ba.id }]);
+      await configService.setConfig(ub.id, 'homeItems', [{ type: 'bookmark', id: bb.id }]);
+
+      await bookmarkService.deleteBookmark(ua.id, ba.id);
+
+      assert.strictEqual((await getHomeItems(ua.id)).length, 0, 'A 用户的引用应被清理');
+      assert.strictEqual((await getHomeItems(ub.id)).length, 1, 'B 用户的引用不应受影响');
+    });
+
+    await test('homeItems 找不到对应配置时不报错', async () => {
+      const u = await User.create({
+        username: 'homeuser3', email: 'home3@example.com', password: 'Passw0rd123'
+      });
+      const bm = await bookmarkService.createBookmark(u.id, {
+        title: 'x', url: 'https://example.com/x'
+      });
+      // 未设置过 homeItems
+      await assert.doesNotReject(() => bookmarkService.deleteBookmark(u.id, bm.id));
+    });
+
+    await test('字符串与数字 id 混用也能正确清理', async () => {
+      const u = await User.create({
+        username: 'homeuser4', email: 'home4@example.com', password: 'Passw0rd123'
+      });
+      const bm = await bookmarkService.createBookmark(u.id, {
+        title: 'str', url: 'https://example.com/str'
+      });
+
+      // 模拟历史数据：id 以字符串形式存放
+      await configService.setConfig(u.id, 'homeItems', [{ type: 'bookmark', id: String(bm.id) }]);
+
+      await bookmarkService.deleteBookmark(u.id, bm.id);
+      assert.strictEqual((await getHomeItems(u.id)).length, 0, '字符串 id 也应被清理');
+    });
   } finally {
     await new Promise((resolve) => server.close(resolve));
     await sequelize.close();

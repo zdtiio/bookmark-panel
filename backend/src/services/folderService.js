@@ -1,5 +1,7 @@
 const Folder = require('../models/Folder');
 const Bookmark = require('../models/Bookmark');
+const sequelize = require('../config/database');
+const homeItemsService = require('./homeItemsService');
 const { errorResponse } = require('../utils/response');
 
 const folderService = {
@@ -89,7 +91,12 @@ const folderService = {
     if (bookmarkCount > 0) {
       throw errorResponse('无法删除：该文件夹包含书签', 'VALIDATION_ERROR', 400);
     }
-    return folder.destroy();
+
+    // 删除文件夹与清理首页引用放在同一事务，保证删除在数据库层面完整
+    return sequelize.transaction(async (transaction) => {
+      await folder.destroy({ transaction });
+      await homeItemsService.removeReferences(userId, 'folder', [folder.id], transaction);
+    });
   }
 };
 

@@ -439,6 +439,9 @@ const beforeImport = (file) => {
 
 const saveSettings = async () => {
   const configToSave = { ...localConfig.value };
+  // 首页布局（homeItems）由首页逻辑负责，并在删除书签/文件夹时由后端清理，
+  // 设置面板不参与持久化，避免用可能过期的副本覆盖掉它。
+  delete configToSave.homeItems;
   if (configToSave.searchEngine === 'custom') {
     const customUrl = customSearchEngine.value.trim();
     if (!customUrl) {

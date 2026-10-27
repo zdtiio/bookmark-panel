@@ -64,6 +64,20 @@ export const useConfigStore = defineStore('config', () => {
     }
   };
 
+  /**
+   * 仅同步本地首页布局，不发请求。
+   *
+   * 删除书签 / 文件夹时，后端已在同一事务中清理了 homeItems 里的引用，
+   * 前端只需把本地视图对齐即可，不再重复发起一次配置更新。
+   */
+  const setHomeItems = (items) => {
+    config.value = {
+      ...config.value,
+      homeItems: Array.isArray(items) ? items : []
+    };
+    saveToLocalStorage(config.value);
+  };
+
   const initFromLocalStorage = () => {
     const localConfig = loadFromLocalStorage();
     if (localConfig) {
@@ -75,6 +89,7 @@ export const useConfigStore = defineStore('config', () => {
     config,
     loadConfig,
     saveConfig,
+    setHomeItems,
     initFromLocalStorage
   };
 });
