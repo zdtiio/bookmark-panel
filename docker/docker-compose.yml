@@ -12,6 +12,9 @@ services:
       # 必须通过 .env 或环境变量提供强随机密钥；未设置时服务会拒绝启动。
       # 生成方式：node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a random value of at least 32 characters}
+      # ⚠️ 必须带单位（如 7d、180d、12h）。只写数字（如 180）会被 jsonwebtoken
+      # 当作「毫秒」，导致 token 签发即过期（登录成功但所有接口 401）。
+      # 服务启动时会校验，纯数字将拒绝启动。
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
       - NODE_ENV=production
       - DB_PATH=./database/bookmarks.db

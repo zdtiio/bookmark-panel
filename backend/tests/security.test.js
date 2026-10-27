@@ -117,6 +117,7 @@ const uploadIcon = (server, { filename, contentType, content, token }) => {
   const User = require('../src/models/User');
   const bookmarkService = require('../src/services/bookmarkService');
   const iconController = require('../src/controllers/iconController');
+  const { getJwtExpiresIn } = require('../src/middleware/auth');
   const jwt = require('jsonwebtoken');
 
   await sequelize.sync({ force: true });
@@ -355,6 +356,48 @@ const uploadIcon = (server, { filename, contentType, content, token }) => {
       process.env.JWT_SECRET = original;
       // 合法密钥应通过
       assert.doesNotThrow(() => assertSecureConfig());
+    });
+
+    await test('JWT_EXPIRES_IN 纯数字被拒绝（会被当作毫秒导致立即过期）', async () => {
+      const original = process.env.JWT_EXPIRES_IN;
+      // 复现真实事故：配置 180 意图为 180 天，实际被当成 180 毫秒
+      process.env.JWT_EXPIRES_IN = '180';
+      assert.throws(() => getJwtExpiresIn(), /纯数字|毫秒/, '应拒绝纯数字配置');
+
+      // 数字转成带单位后应被接受
+      process.env.JWT_EXPIRES_IN = '180d';
+      assert.strictEqual(getJwtExpiresIn(), '180d');
+
+      process.env.JWT_EXPIRES_IN = original;
+    });
+
+    await test('JWT_EXPIRES_IN 拒绝 0、负数与非法单位', async () => {
+      const original = process.env.JWT_EXPIRES_IN;
+      for (const bad of ['0', '0s', '-1d', '7x', 'ms', 'abc']) {
+        process.env.JWT_EXPIRES_IN = bad;
+        assert.throws(() => getJwtExpiresIn(), undefined, `应拒绝: ${bad}`);
+      }
+      // 合法的各种单位
+      for (const good of ['7d', '12h', '30m', '45s', '2w', '1y']) {
+        process.env.JWT_EXPIRES_IN = good;
+        assert.strictEqual(getJwtExpiresIn(), good);
+      }
+      process.env.JWT_EXPIRES_IN = original;
+    });
+
+    await test('签发的 token 有效期与配置一致（不会立即过期）', async () => {
+      const original = process.env.JWT_EXPIRES_IN;
+      process.env.JWT_EXPIRES_IN = '180d';
+      const t = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
+        algorithm: 'HS256',
+        expiresIn: getJwtExpiresIn()
+      });
+      const decoded = jwt.decode(t);
+      const lifetimeDays = (decoded.exp - decoded.iat) / 86400;
+      assert.strictEqual(lifetimeDays, 180, `有效期应为 180 天，实际 ${lifetimeDays} 天`);
+      // 立即验签必须通过
+      assert.doesNotThrow(() => jwt.verify(t, process.env.JWT_SECRET, { algorithms: ['HS256'] }));
+      process.env.JWT_EXPIRES_IN = original;
     });
   } finally {
     await new Promise((resolve) => server.close(resolve));

@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const userService = require('../services/userService');
 const apiTokenService = require('../services/apiTokenService');
 const { successResponse, errorResponse } = require('../utils/response');
-const { JWT_ALGORITHM, getJwtSecret } = require('../middleware/auth');
+const { JWT_ALGORITHM, getJwtSecret, getJwtExpiresIn } = require('../middleware/auth');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_PATTERN = /^[A-Za-z0-9_\u4e00-\u9fa5.-]{3,50}$/;
@@ -12,7 +12,8 @@ const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 const signToken = (user) => {
   return jwt.sign({ userId: user.id }, getJwtSecret(), {
     algorithm: JWT_ALGORITHM,
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    // getJwtExpiresIn 会校验格式与正值，避免 "0" 之类配置签发立即过期的 token
+    expiresIn: getJwtExpiresIn()
   });
 };
 

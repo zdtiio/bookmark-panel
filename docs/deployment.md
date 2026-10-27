@@ -152,7 +152,7 @@ server {
 | --- | --- | --- | --- |
 | `PORT` | 否 | `3000` | 容器内监听端口 |
 | `JWT_SECRET` | 是 | 无 | JWT 签名密钥，**至少 32 位随机字符**；使用示例值或不足 32 位时服务拒绝启动 |
-| `JWT_EXPIRES_IN` | 否 | `7d` | JWT 有效期 |
+| `JWT_EXPIRES_IN` | 否 | `7d` | JWT 有效期，**必须带单位**（`s`/`m`/`h`/`d`/`w`/`y`）。⚠️ 只写数字（如 `180`）会被 jsonwebtoken 当作**毫秒**，导致 token 签发即过期、登录后所有接口返回 401。180 天请写 `180d`；服务启动时会拒绝纯数字配置 |
 | `DB_PATH` | 否 | `./database/bookmarks.db` | SQLite 路径 |
 | `UPLOAD_PATH` | 否 | `./uploads` | 图标目录 |
 | `NODE_ENV` | 否 | - | 生产建议设为 `production` |

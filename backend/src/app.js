@@ -37,6 +37,7 @@ const tokenRoutes = require('./routes/tokenRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const securityHeaders = require('./middleware/securityHeaders');
 const uploadStatic = require('./middleware/uploadStatic');
+const { getJwtExpiresIn } = require('./middleware/auth');
 
 const app = express();
 const cache = new NodeCache({ stdTTL: 600 });
@@ -102,6 +103,10 @@ const PORT = process.env.PORT || 3000;
  * 启动前校验关键配置。
  * JWT_SECRET 缺失或过弱会让攻击者直接伪造任意用户身份的 Token，
  * 因此宁可拒绝启动，也不能带着不安全的默认值运行。
+ *
+ * JWT_EXPIRES_IN 同样在此校验：纯数字会被 jsonwebtoken 当作毫秒，
+ * 导致签发的 token 立即过期（登录成功但接口全部 401），
+ * 这类配置错误必须在启动时暴露，而不是等用户登录后才发现。
  */
 const assertSecureConfig = () => {
   const secret = process.env.JWT_SECRET;
@@ -118,6 +123,10 @@ const assertSecureConfig = () => {
       '且不能使用示例中的默认值。可使用 `node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"` 生成。'
     );
   }
+
+  // 校验 JWT_EXPIRES_IN 格式（非法值会在此抛出，阻止服务启动）
+  const expiresIn = getJwtExpiresIn();
+  console.log(`JWT 有效期: ${expiresIn}`);
 
   if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGINS) {
     console.warn('[security] 生产环境未配置 CORS_ORIGINS，跨域请求将被拒绝（同源访问不受影响）。');
