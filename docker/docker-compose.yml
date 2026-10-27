@@ -5,6 +5,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # 数据目录需可写：容器内以 node 用户（uid 1000）运行，
+      # 镜像入口脚本会自动修正这两个目录的属主。
+      # 若自定义为只读挂载（:ro），SQLite 会报 "attempt to write a readonly database"。
       - ./database:/app/database
       - ./uploads:/app/uploads
     environment:

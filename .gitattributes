@@ -1,0 +1,20 @@
+# 统一换行符，避免跨平台协作时脚本与配置被破坏。
+# 仓库中存在 core.autocrlf=true 的检出环境，若不显式约定，
+# Shell 脚本会被转成 CRLF，容器内的 shebang（#!/bin/sh）随之失效。
+
+# Shell 脚本必须保持 LF，否则容器/CI 中无法执行
+*.sh text eol=lf
+
+# Docker 相关文件保持 LF
+Dockerfile text eol=lf
+docker/Dockerfile text eol=lf
+*.dockerfile text eol=lf
+.dockerignore text eol=lf
+docker-compose*.yml text eol=lf
+
+# YAML 配置保持 LF（CI 与 Compose 解析）
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# 其余文本文件交由 Git 自动处理
+* text=auto

@@ -48,20 +48,28 @@ FROM node:24.22.1-alpine
 
 WORKDIR /app
 
-# 原生模块运行时需要 libstdc++
-RUN apk add --no-cache libstdc++
+# 原生模块运行时需要 libstdc++；su-exec 用于入口脚本降权运行
+RUN apk add --no-cache libstdc++ su-exec
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY backend/ .
 
 COPY --from=builder /app/frontend/dist ./dist
 
-RUN mkdir -p database uploads \
+# 入口脚本：修正 bind mount 目录属主后降权到 node 用户运行，
+# 避免挂载目录属主为 root 时 SQLite 报 "attempt to write a readonly database"。
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+
+# 兜底：若在 Windows 环境下构建导致脚本带 CRLF，shebang 会失效，
+# 这里统一去回车符并赋予执行权限（.gitattributes 已约定 LF，此为二次防护）。
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
+    && chmod +x /usr/local/bin/entrypoint.sh \
+    && mkdir -p database uploads \
     && chown -R node:node /app/database /app/uploads /app
 
-# 以非 root 用户运行，缩小容器被攻破后的影响面
-USER node
+# 容器以 root 启动入口脚本（仅为修正挂载目录属主），随即降权到 node 用户；
+# 若 compose 中显式指定了 user:，则入口脚本会直接以该用户运行应用。
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["npm", "start"]
 
 EXPOSE 3000
-
-CMD ["npm", "start"]

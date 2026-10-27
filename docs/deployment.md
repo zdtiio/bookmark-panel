@@ -110,9 +110,26 @@ docker run -d --name bookmark-panel -p 3000:3000 `
 3. 复制后端源码。
 4. 把前端 `dist` 复制到 `/app/dist`。
 5. 创建 `database`、`uploads` 目录并授权给 `node` 用户。
-6. 暴露 `3000`，以非 root 用户 `node` 执行 `npm start`。
+6. 暴露 `3000`，由入口脚本 `entrypoint.sh` 修正挂载目录属主后，以非 root 用户 `node` 执行 `npm start`。
 
 > 基础镜像固定到 `node:24.22.1-alpine`（Node.js 24 LTS）。固定补丁版本可保证构建可复现，并避免使用已停止安全更新的 Node 版本。升级时请同步修改本文件、`Dockerfile` 与各 `package.json` 的 `engines` 字段。
+
+### 关于容器用户与目录权限
+
+容器以 `node` 用户（uid/gid 均为 **1000**）运行应用。`docker-compose.yml` 使用 bind mount 挂载 `./database` 与 `./uploads`，而 **bind mount 会覆盖镜像内设置的目录属主**。
+
+`entrypoint.sh` 为此做了兼容：容器启动时先以 root 修正这两个挂载目录的属主，再降权到 `node` 用户运行，因此**通常无需手动干预**。
+
+若仍遇到 SQLite 只读错误，在宿主机手动修正即可：
+
+```bash
+# 在 docker-compose.yml 所在目录执行
+chown -R 1000:1000 ./database ./uploads
+```
+
+> 从 **v1.0.10 及更早版本**升级时需特别注意：旧镜像以 root 运行，其创建的 `./database`、`./uploads` 属主是 root。新版本改为非 root 运行后，
+> 表现为**能启动、能登录、能查看，但任何修改都报 `attempt to write a readonly database`**。
+> 新版入口脚本会自动修复，若使用旧的自定义启动方式，请手动执行上面的 `chown`。
 
 ## 4. 反向代理
 
